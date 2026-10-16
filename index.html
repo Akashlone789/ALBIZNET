@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ALBIZNET</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- १. WELCOME SCREEN -->
+  <div id="welcome-screen">
+    <div class="top-bar"><div class="lang-btn"><i class="fa-solid fa-globe"></i> English <i class="fa-solid fa-chevron-down"></i></div></div>
+    <div class="brand-section">
+      <div class="planet-logo"><i class="fa-solid fa-ring"></i></div>
+      <div class="app-title">ALBIZNET</div>
+      <div class="tagline">CONNECT &bull; SHARE &bull; GROW</div>
+      <div class="welcome-title">Welcome <span>Back!</span></div>
+      <div class="subtitle">Your world, your people, your space.</div>
+    </div>
+    <div class="hero-image-box">
+      <div class="bubble b1"><i class="fa-solid fa-user-group" style="color:#38bdf8;"></i> Make Friends</div>
+      <div class="bubble b2"><i class="fa-solid fa-camera" style="color:#c084fc;"></i> Share Moments</div>
+      <div class="bubble b3"><i class="fa-solid fa-location-dot" style="color:#f472b6;"></i> Explore Places</div>
+    </div>
+    <div class="action-box">
+      <button class="btn-login" onclick="openLoginModal()">
+        <i class="fa-solid fa-arrow-right"></i>
+        <div class="btn-text"><span class="btn-main-txt">Log In</span><span class="btn-sub-txt">Welcome back, friend</span></div>
+      </button>
+      <button class="btn-signup" onclick="openSignupModal()">
+        <i class="fa-solid fa-user-plus" style="color:#38bdf8;"></i>
+        <div class="btn-text"><span class="btn-main-txt">Sign Up</span><span class="btn-sub-txt">Create People or Business Account</span></div>
+      </button>
+      <div class="divider">or continue with</div>
+      <div class="social-row">
+        <div class="s-icon" onclick="handleGoogleSignIn()"><i class="fa-brands fa-google" style="color:#ea4335;"></i></div>
+        <div class="s-icon" onclick="openLoginModal()"><i class="fa-brands fa-facebook-f" style="color:#1877f2;"></i></div>
+        <div class="s-icon" onclick="openLoginModal()"><i class="fa-brands fa-apple"></i></div>
+        <div class="s-icon" onclick="openLoginModal()"><i class="fa-solid fa-mobile-screen"></i></div>
+      </div>
+      <div class="footer-quote">Be real &bull; Be you &bull; <b>Be ALBIZNET</b></div>
+    </div>
+  </div>
+
+  <!-- २. LOGIN MODAL -->
+  <div id="login-modal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title">Log In to ALBIZNET</span>
+        <button class="close-btn" onclick="closeModals()">✕</button>
+      </div>
+      <div class="type-selector">
+        <div id="login-tab-mob" class="type-card active" onclick="switchVerifyMethod('login', 'mobile')">📱 Mobile OTP</div>
+        <div id="login-tab-mail" class="type-card" onclick="switchVerifyMethod('login', 'email')">✉️ Gmail OTP</div>
+      </div>
+      <div class="form-group" id="login-mob-box">
+        <label>मोबाईल नंबर</label>
+        <div class="otp-row">
+          <input type="tel" id="login-mobile" class="form-input" placeholder="10 अंकी नंबर">
+          <button class="otp-btn" onclick="sendOTP('login', 'mobile')">Get OTP</button>
+        </div>
+      </div>
+      <div class="form-group" id="login-mail-box" style="display:none;">
+        <label>Gmail आयडी</label>
+        <div class="otp-row">
+          <input type="email" id="login-email" class="form-input" placeholder="name@gmail.com">
+          <button class="otp-btn" onclick="sendOTP('login', 'email')">Get OTP</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label>OTP टाका</label>
+        <input type="number" id="login-otp" class="form-input" placeholder="4 अंकी OTP">
+      </div>
+      <button class="submit-btn" onclick="handleLogin()">Verify & Log In</button>
+      <div class="divider" style="margin:10px 0;">OR</div>
+      <button class="google-btn" onclick="handleGoogleSignIn()"><i class="fa-brands fa-google" style="color:#ea4335;"></i> Continue with Google</button>
+    </div>
+  </div>
+
+  <!-- ३. SIGNUP MODAL -->
+  <div id="signup-modal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header">
+        <span class="modal-title">Create New Account</span>
+        <button class="close-btn" onclick="closeModals()">✕</button>
+      </div>
+      <div class="type-selector">
+        <div id="tab-people" class="type-card active" onclick="selectAccountType('people')">👤 People</div>
+        <div id="tab-business" class="type-card" onclick="selectAccountType('business')">🏪 Business</div>
+      </div>
+      <div id="people-fields">
+        <div class="form-group"><label>पूर्ण नाव (Full Name)</label><input type="text" id="p-name" class="form-input" placeholder="Aarav Kulkarni"></div>
+        <div class="form-group"><label>जन्मतारीख (Birthday)</label><input type="date" id="p-dob" class="form-input"></div>
+      </div>
+      <div id="business-fields" style="display:none;">
+        <div class="form-group"><label>व्यवसायाचे नाव (Business Name)</label><input type="text" id="b-name" class="form-input" placeholder="Maharashtra Store"></div>
+        <div class="form-group"><label>मालकाचे नाव (Owner Name)</label><input type="text" id="b-owner" class="form-input" placeholder="संतोष देशमुख"></div>
+        <div class="form-group"><label>प्रॉडक्ट लिस्ट (Products)</label><input type="text" id="b-products" class="form-input" placeholder="Mobile, Laptop, TV"></div>
+      </div>
+      <div class="form-group">
+        <label>लोकेशन (Location)</label>
+        <div class="otp-row">
+          <input type="text" id="signup-location" class="form-input" value="Buldana, Maharashtra">
+          <button class="otp-btn" onclick="detectGPS('signup-location')">📍 GPS</button>
+        </div>
+      </div>
+      <div class="type-selector">
+        <div id="signup-tab-mob" class="type-card active" onclick="switchVerifyMethod('signup', 'mobile')">📱 Mobile OTP</div>
+        <div id="signup-tab-mail" class="type-card" onclick="switchVerifyMethod('signup', 'email')">✉️ Gmail OTP</div>
+      </div>
+      <div class="form-group" id="signup-mob-box">
+        <div class="otp-row">
+          <input type="tel" id="signup-mobile" class="form-input" placeholder="10 अंकी मोबाईल नंबर">
+          <button class="otp-btn" onclick="sendOTP('signup', 'mobile')">Get OTP</button>
+        </div>
+      </div>
+      <div class="form-group" id="signup-mail-box" style="display:none;">
+        <div class="otp-row">
+          <input type="email" id="signup-email" class="form-input" placeholder="yourname@gmail.com">
+          <button class="otp-btn" onclick="sendOTP('signup', 'email')">Get OTP</button>
+        </div>
+      </div>
+      <div class="form-group"><input type="number" id="signup-otp" class="form-input" placeholder="4 अंकी OTP टाका"></div>
+      <button class="submit-btn" onclick="handleSignup()">Create Account</button>
+      <div class="divider" style="margin:10px 0;">OR</div>
+      <button class="google-btn" onclick="handleGoogleSignIn()"><i class="fa-brands fa-google" style="color:#ea4335;"></i> Sign Up with Google</button>
+    </div>
+  </div>
+
+  <!-- ४. CREATE POST & PROFILE MODALS -->
+  <div id="create-modal" class="modal-overlay">
+    <div class="modal-box">
+      <div class="modal-header"><span class="modal-title">Create Post</span><button class="close-btn" onclick="closeModals()">✕</button></div>
+      <div class="form-group"><label>कॅप्शन</label><textarea id="new-post-text" class="form-input" rows="2"></textarea></div>
+      <div class="form-group"><label>लोकेशन</label><input type="text" id="new-post-loc" class="form-input" value="Buldana, Maharashtra"></div>
+      <div class="form-group"><label>फोटो निवडा</label><input type="file" accept="image/*" class="form-input" onchange="loadNewPostImg(event)"></div>
+      <button class="submit-btn" onclick="publishPost()">Publish Now 🚀</button>
+    </div>
+  </div>
+
+  <div id="profile-modal" class="modal-overlay">
+    <div class="modal-box" style="text-align:center;">
+      <div class="modal-header"><span class="modal-title">My Profile</span><button class="close-btn" onclick="closeModals()">✕</button></div>
+      <h3 id="prof-name"></h3>
+      <p id="prof-type" style="font-size:11px; color:#38bdf8; margin:4px 0;"></p>
+      <p id="prof-loc" style="font-size:12px; color:#cbd5e1; margin-bottom:10px;"></p>
+      <div id="prof-extra" style="background:rgba(255,255,255,0.06); padding:10px; border-radius:12px; text-align:left; font-size:12px; margin-bottom:12px;"></div>
+      <button class="submit-btn" style="background:#ef4444;" onclick="logoutUser()">Log Out</button>
+    </div>
+  </div>
+
+  <!-- ५. MAIN FEED SCREEN -->
+  <div id="app-feed-screen">
+    <div class="app-header">
+      <div class="brand-logo-wrap">
+        <i class="fa-solid fa-ring brand-icon"></i>
+        <div><span class="brand-name">ALBIZNET</span><span class="brand-sub">CONNECT &bull; SHARE &bull; GROW</span></div>
+      </div>
+      <div class="header-right">
+        <button class="create-pill" onclick="openCreateModal()">+ Create</button>
+        <div class="circle-icon" onclick="alert('3 Messages!')"><i class="fa-regular fa-comment-dots"></i><span class="badge">3</span></div>
+      </div>
+    </div>
+
+    <div class="tabs-container">
+      <div class="tab-pill active" id="tab-foryou" onclick="switchFeedTab('foryou')">🔥 For You</div>
+      <div class="tab-pill" id="tab-nearby" onclick="switchFeedTab('nearby')">📍 Nearby</div>
+      <div class="tab-pill" id="tab-creators" onclick="switchFeedTab('creators')">🌟 Creators</div>
+    </div>
+
+    <div class="moments-row">
+      <div class="moment-card-add" onclick="openCreateModal()">📸<br>Your<br>Moment</div>
+      <div class="story-user"><div class="story-ring"><img src="https://i.pravatar.cc/150?img=11"></div>Rohit</div>
+      <div class="story-user"><div class="story-ring"><img src="https://i.pravatar.cc/150?img=5"></div>Sneha</div>
+      <div class="story-user"><div class="story-ring"><img src="https://i.pravatar.cc/150?img=12"></div>Aditya</div>
+      <div class="story-user"><div class="story-ring"><img src="https://i.pravatar.cc/150?img=9"></div>Pooja</div>
+    </div>
+
+    <div class="feed-container" id="posts-feed">
+      <div class="post-card">
+        <div class="author-box">
+          <img class="author-img" src="https://i.pravatar.cc/150?img=11">
+          <div>
+            <div class="author-name">Aarav Kulkarni <i class="fa-solid fa-certificate blue-tick"></i></div>
+            <div class="post-meta"><i class="fa-solid fa-location-dot"></i> Buldana &bull; 12 min &bull; Public</div>
+          </div>
+        </div>
+        <div class="post-caption">Small town. Big dreams. 🌅✨</div>
+        <div class="post-media-box">
+          <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=900&q=80">
+          <div class="location-overlay"><i class="fa-solid fa-location-dot"></i> Buldana, Maharashtra</div>
+        </div>
+        <div class="post-buttons">
+          <button class="btn-vibe" onclick="giveVibe(this)"><i class="fa-solid fa-fire"></i> Vibe</button>
+          <button class="btn-secondary-act" onclick="toggleReplyBox(this)"><i class="fa-regular fa-comment-dots"></i> Reply</button>
+          <button class="btn-secondary-act" onclick="remixPost('Aarav Kulkarni')"><i class="fa-solid fa-wand-magic-sparkles"></i> Remix</button>
+        </div>
+        <div class="reply-box">
+          <div class="reply-input-row">
+            <input type="text" placeholder="प्रतिक्रिया लिहा..."><button onclick="addReply(this)">Send</button>
+          </div>
+          <div class="replies-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="bottom-nav-wrap">
+      <div class="nav-item active" onclick="switchFeedTab('foryou')"><i class="fa-solid fa-house"></i>Home</div>
+      <div class="nav-item" onclick="switchFeedTab('nearby')"><i class="fa-regular fa-compass"></i>Explore</div>
+      <div class="nav-center-plus" onclick="openCreateModal()"><i class="fa-solid fa-plus"></i></div>
+      <div class="nav-item" onclick="alert('Inbox')"><i class="fa-regular fa-envelope"></i>Inbox</div>
+      <div class="nav-item" onclick="showMyProfile()"><i class="fa-regular fa-user"></i>Me</div>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
