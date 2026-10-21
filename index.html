@@ -2,217 +2,702 @@
 <html lang="mr">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ALBIZNET</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>ALBIZNET - Connect • Share • Grow</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-  <!-- १. WELCOME SCREEN -->
+  <!-- टोस्ट नोटिफिकेशन -->
+  <div id="custom-toast"></div>
+
+  <!-- =========================================================
+       0. WELCOME LANDING SCREEN (LOG IN & SIGN UP)
+       ========================================================= -->
   <div id="welcome-screen">
-    <div class="top-bar"><div class="lang-btn"><i class="fa-solid fa-globe"></i> English <i class="fa-solid fa-chevron-down"></i></div></div>
-    <div class="brand-section">
-      <div class="planet-logo"><i class="fa-solid fa-ring"></i></div>
-      <div class="app-title">ALBIZNET</div>
-      <div class="tagline">CONNECT &bull; SHARE &bull; GROW</div>
-      <div class="welcome-title">Welcome <span>Back!</span></div>
-      <div class="subtitle">Your world, your people, your space.</div>
+    <div class="w-top-bar">
+      <div class="w-lang-pill"><i class="fa-solid fa-globe"></i> English <i class="fa-solid fa-chevron-down"></i></div>
     </div>
-    <div class="hero-image-box">
-      <div class="bubble b1"><i class="fa-solid fa-user-group" style="color:#38bdf8;"></i> Make Friends</div>
-      <div class="bubble b2"><i class="fa-solid fa-camera" style="color:#c084fc;"></i> Share Moments</div>
-      <div class="bubble b3"><i class="fa-solid fa-location-dot" style="color:#f472b6;"></i> Explore Places</div>
+
+    <div class="w-brand-box">
+      <div class="w-ring-icon"><i class="fa-solid fa-ring"></i></div>
+      <h1 class="w-title">ALBIZNET</h1>
+      <p class="w-tagline">CONNECT &bull; SHARE &bull; GROW</p>
+      <h2 class="w-welcome-txt">Welcome <span>Back!</span></h2>
+      <p class="w-sub-txt">Your world, your people, your space.</p>
     </div>
-    <div class="action-box">
-      <button class="btn-login" onclick="openLoginModal()">
+
+    <div class="w-hero-friends">
+      <div class="w-float-pill p1"><i class="fa-solid fa-user-group" style="color:#38bdf8;"></i> Make Friends</div>
+      <div class="w-float-pill p2"><i class="fa-solid fa-camera" style="color:#c084fc;"></i> Share Moments</div>
+      <div class="w-float-pill p3"><i class="fa-solid fa-location-dot" style="color:#f472b6;"></i> Explore Places</div>
+    </div>
+
+    <div class="w-bottom-actions">
+      <button class="w-btn-login" onclick="openLoginModal()">
         <i class="fa-solid fa-arrow-right"></i>
-        <div class="btn-text"><span class="btn-main-txt">Log In</span><span class="btn-sub-txt">Welcome back, friend</span></div>
+        <div class="w-btn-labels">
+          <strong>Log In</strong>
+          <span>Welcome back, friend</span>
+        </div>
       </button>
-      <button class="btn-signup" onclick="openSignupModal()">
+
+      <button class="w-btn-signup" onclick="openNeonSignupScreen()">
         <i class="fa-solid fa-user-plus" style="color:#38bdf8;"></i>
-        <div class="btn-text"><span class="btn-main-txt">Sign Up</span><span class="btn-sub-txt">Create People or Business Account</span></div>
+        <div class="w-btn-labels">
+          <strong>Sign Up</strong>
+          <span>Create your new account</span>
+        </div>
       </button>
-      <div class="divider">or continue with</div>
-      <div class="social-row">
-        <div class="s-icon" onclick="handleGoogleSignIn()"><i class="fa-brands fa-google" style="color:#ea4335;"></i></div>
-        <div class="s-icon" onclick="openLoginModal()"><i class="fa-brands fa-facebook-f" style="color:#1877f2;"></i></div>
-        <div class="s-icon" onclick="openLoginModal()"><i class="fa-brands fa-apple"></i></div>
-        <div class="s-icon" onclick="openLoginModal()"><i class="fa-solid fa-mobile-screen"></i></div>
+
+      <div class="w-or-line">or continue with</div>
+      <div class="w-social-icons">
+        <div class="w-s-cir" onclick="openGoogleChooser()"><i class="fa-brands fa-google" style="color:#ea4335;"></i></div>
+        <div class="w-s-cir" onclick="openLoginModal()"><i class="fa-brands fa-facebook-f" style="color:#1877f2;"></i></div>
+        <div class="w-s-cir" onclick="openLoginModal()"><i class="fa-solid fa-mobile-screen"></i></div>
       </div>
-      <div class="footer-quote">Be real &bull; Be you &bull; <b>Be ALBIZNET</b></div>
     </div>
   </div>
 
-  <!-- २. LOGIN MODAL -->
-  <div id="login-modal" class="modal-overlay">
-    <div class="modal-box">
-      <div class="modal-header">
-        <span class="modal-title">Log In to ALBIZNET</span>
-        <button class="close-btn" onclick="closeModals()">✕</button>
+  <!-- LOG IN MODAL -->
+  <div id="login-modal" class="modal-overlay" style="z-index:4200;">
+    <div class="login-popup-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3 style="color:#38bdf8; font-size:18px; font-weight:800;">Log In to ALBIZNET</h3>
+        <button onclick="closeLoginModal()" class="close-cir-btn">✕</button>
       </div>
-      <div class="type-selector">
-        <div id="login-tab-mob" class="type-card active" onclick="switchVerifyMethod('login', 'mobile')">📱 Mobile OTP</div>
-        <div id="login-tab-mail" class="type-card" onclick="switchVerifyMethod('login', 'email')">✉️ Gmail OTP</div>
+      <div class="neon-input-pill">
+        <i class="fa-solid fa-mobile-screen"></i>
+        <input type="text" id="login-id-input" placeholder="Mobile Number किंवा Gmail टाका">
       </div>
-      <div class="form-group" id="login-mob-box">
-        <label>मोबाईल नंबर</label>
-        <div class="otp-row">
-          <input type="tel" id="login-mobile" class="form-input" placeholder="10 अंकी नंबर">
-          <button class="otp-btn" onclick="sendOTP('login', 'mobile')">Get OTP</button>
-        </div>
+      <div class="neon-input-pill">
+        <i class="fa-solid fa-lock"></i>
+        <input type="password" id="login-pass-input" placeholder="Enter Password किंवा OTP">
       </div>
-      <div class="form-group" id="login-mail-box" style="display:none;">
-        <label>Gmail आयडी</label>
-        <div class="otp-row">
-          <input type="email" id="login-email" class="form-input" placeholder="name@gmail.com">
-          <button class="otp-btn" onclick="sendOTP('login', 'email')">Get OTP</button>
-        </div>
+      <div style="text-align:right; margin-bottom:12px;">
+        <span onclick="sendQuickLoginOTP()" style="color:#00f2fe; font-size:12px; font-weight:700; cursor:pointer;">📱 Send Quick OTP</span>
       </div>
-      <div class="form-group">
-        <label>OTP टाका</label>
-        <input type="number" id="login-otp" class="form-input" placeholder="4 अंकी OTP">
-      </div>
-      <button class="submit-btn" onclick="handleLogin()">Verify & Log In</button>
-      <div class="divider" style="margin:10px 0;">OR</div>
-      <button class="google-btn" onclick="handleGoogleSignIn()"><i class="fa-brands fa-google" style="color:#ea4335;"></i> Continue with Google</button>
+      <button class="main-create-btn" onclick="handleLoginSubmit()">
+        <i class="fa-solid fa-right-to-bracket"></i>
+        <span>Log In Now</span>
+      </button>
+      <div class="auth-or-divider">OR</div>
+      <button class="google-white-btn" onclick="closeLoginModal(); openGoogleChooser();">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
+        <span>Log In with Google</span>
+      </button>
     </div>
   </div>
 
-  <!-- ३. SIGNUP MODAL -->
-  <div id="signup-modal" class="modal-overlay">
-    <div class="modal-box">
-      <div class="modal-header">
-        <span class="modal-title">Create New Account</span>
-        <button class="close-btn" onclick="closeModals()">✕</button>
-      </div>
-      <div class="type-selector">
-        <div id="tab-people" class="type-card active" onclick="selectAccountType('people')">👤 People</div>
-        <div id="tab-business" class="type-card" onclick="selectAccountType('business')">🏪 Business</div>
-      </div>
-      <div id="people-fields">
-        <div class="form-group"><label>पूर्ण नाव (Full Name)</label><input type="text" id="p-name" class="form-input" placeholder="Aarav Kulkarni"></div>
-        <div class="form-group"><label>जन्मतारीख (Birthday)</label><input type="date" id="p-dob" class="form-input"></div>
-      </div>
-      <div id="business-fields" style="display:none;">
-        <div class="form-group"><label>व्यवसायाचे नाव (Business Name)</label><input type="text" id="b-name" class="form-input" placeholder="Maharashtra Store"></div>
-        <div class="form-group"><label>मालकाचे नाव (Owner Name)</label><input type="text" id="b-owner" class="form-input" placeholder="संतोष देशमुख"></div>
-        <div class="form-group"><label>प्रॉडक्ट लिस्ट (Products)</label><input type="text" id="b-products" class="form-input" placeholder="Mobile, Laptop, TV"></div>
-      </div>
-      <div class="form-group">
-        <label>लोकेशन (Location)</label>
-        <div class="otp-row">
-          <input type="text" id="signup-location" class="form-input" value="Buldana, Maharashtra">
-          <button class="otp-btn" onclick="detectGPS('signup-location')">📍 GPS</button>
+  <!-- =========================================================
+       1. NEON SIGN UP SCREEN (PEOPLE & BUSINESS ACCOUNT)
+       ========================================================= -->
+  <div id="auth-screen" style="display:none;">
+    <div class="auth-top-brand" style="justify-content:space-between;">
+      <button onclick="backToWelcomeScreen()" class="close-cir-btn"><i class="fa-solid fa-arrow-left"></i></button>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div class="auth-logo-mark">A</div>
+        <div>
+          <div class="auth-brand-title">ALBIZNET</div>
+          <div class="auth-brand-sub">Connect &bull; Share &bull; Grow</div>
         </div>
       </div>
-      <div class="type-selector">
-        <div id="signup-tab-mob" class="type-card active" onclick="switchVerifyMethod('signup', 'mobile')">📱 Mobile OTP</div>
-        <div id="signup-tab-mail" class="type-card" onclick="switchVerifyMethod('signup', 'email')">✉️ Gmail OTP</div>
+      <button onclick="backToWelcomeScreen()" class="close-cir-btn">✕</button>
+    </div>
+
+    <div class="auth-hero-banner">
+      <div class="auth-hero-overlay">
+        <h2 id="auth-heading">Create <span>People</span> Account</h2>
+        <p id="auth-subheading">Join ALBIZNET and be a part of our growing community</p>
       </div>
-      <div class="form-group" id="signup-mob-box">
-        <div class="otp-row">
-          <input type="tel" id="signup-mobile" class="form-input" placeholder="10 अंकी मोबाईल नंबर">
-          <button class="otp-btn" onclick="sendOTP('signup', 'mobile')">Get OTP</button>
+    </div>
+
+    <div class="neon-toggle-row">
+      <div class="neon-tab active" id="tab-acc-people" onclick="switchAuthAccount('people')">
+        <i class="fa-solid fa-user-group"></i>
+        <span>People</span>
+        <i class="fa-solid fa-circle-check check-mark"></i>
+      </div>
+      <div class="neon-tab" id="tab-acc-business" onclick="switchAuthAccount('business')">
+        <i class="fa-solid fa-store"></i>
+        <span>Business</span>
+        <i class="fa-solid fa-circle-check check-mark"></i>
+      </div>
+    </div>
+
+    <div class="auth-form-wrap">
+      <div id="auth-people-fields">
+        <div class="neon-input-pill">
+          <i class="fa-solid fa-user"></i>
+          <input type="text" id="reg-p-name" placeholder="Full Name">
+          <span class="req-star">*</span>
+        </div>
+        <div class="neon-input-pill">
+          <i class="fa-solid fa-calendar-days"></i>
+          <input type="text" id="reg-p-dob" placeholder="Date of Birth (DD / MM / YYYY)" onfocus="(this.type='date')" onblur="if(!this.value)this.type='text'">
+          <span class="req-star">*</span>
         </div>
       </div>
-      <div class="form-group" id="signup-mail-box" style="display:none;">
-        <div class="otp-row">
-          <input type="email" id="signup-email" class="form-input" placeholder="yourname@gmail.com">
-          <button class="otp-btn" onclick="sendOTP('signup', 'email')">Get OTP</button>
+
+      <div id="auth-business-fields" style="display:none;">
+        <div class="neon-input-pill">
+          <i class="fa-solid fa-store"></i>
+          <input type="text" id="reg-b-name" placeholder="Business Name">
+          <span class="req-star">*</span>
+        </div>
+        <div class="neon-input-pill">
+          <i class="fa-solid fa-table-cells-large"></i>
+          <input type="text" id="reg-b-cat" placeholder="Business Category (Shops, Services, Restaurants)">
+          <span class="req-star">*</span>
         </div>
       </div>
-      <div class="form-group"><input type="number" id="signup-otp" class="form-input" placeholder="4 अंकी OTP टाका"></div>
-      <button class="submit-btn" onclick="handleSignup()">Create Account</button>
-      <div class="divider" style="margin:10px 0;">OR</div>
-      <button class="google-btn" onclick="handleGoogleSignIn()"><i class="fa-brands fa-google" style="color:#ea4335;"></i> Sign Up with Google</button>
+
+      <div class="loc-gps-row">
+        <div class="neon-input-pill" style="flex:1; margin-bottom:0;">
+          <i class="fa-solid fa-location-dot"></i>
+          <input type="text" id="reg-location" placeholder="Location (City / Area)" value="Ardhapur, Maharashtra">
+        </div>
+        <button class="use-gps-btn" onclick="detectUserGPS('reg-location')">
+          <i class="fa-solid fa-location-crosshairs"></i> Use GPS
+        </button>
+        <span class="req-star">*</span>
+      </div>
+
+      <div id="auth-biz-about-wrap" style="display:none; margin-top:10px;">
+        <div class="neon-input-pill">
+          <i class="fa-solid fa-circle-info"></i>
+          <input type="text" id="reg-b-about" placeholder="About Your Business">
+          <span class="req-star">*</span>
+        </div>
+      </div>
+
+      <div class="verify-label">Choose Your Verification Method</div>
+      <div class="neon-toggle-row" style="margin-bottom:10px;">
+        <div class="neon-tab active" id="tab-ver-mobile" onclick="switchVerifyTab('mobile')">
+          <i class="fa-solid fa-mobile-screen-button"></i>
+          <span>Mobile Number</span>
+          <i class="fa-solid fa-circle-check check-mark"></i>
+        </div>
+        <div class="neon-tab" id="tab-ver-email" onclick="switchVerifyTab('email')">
+          <i class="fa-solid fa-envelope"></i>
+          <span>Gmail Address</span>
+          <i class="fa-solid fa-circle-check check-mark"></i>
+        </div>
+      </div>
+
+      <div class="neon-input-pill" id="ver-mobile-box">
+        <i class="fa-solid fa-mobile-screen"></i>
+        <input type="tel" id="reg-mobile" placeholder="Enter Mobile Number">
+        <span class="req-star">*</span>
+      </div>
+      <div class="neon-input-pill" id="ver-email-box" style="display:none;">
+        <i class="fa-solid fa-envelope"></i>
+        <input type="email" id="reg-email" placeholder="Enter Gmail Address">
+        <span class="req-star">*</span>
+      </div>
+
+      <div style="text-align:center; margin:10px 0;">
+        <button class="get-otp-gradient-btn" onclick="triggerAuthOTP()">
+          <i class="fa-solid fa-paper-plane"></i> Get OTP
+        </button>
+      </div>
+
+      <div class="neon-input-pill">
+        <i class="fa-solid fa-shield-halved"></i>
+        <input type="number" id="reg-otp" placeholder="Enter 4-Digit OTP">
+        <span class="otp-timer-txt"><i class="fa-regular fa-clock"></i> <span id="otp-countdown">00:59</span></span>
+      </div>
+
+      <div class="neon-input-pill">
+        <i class="fa-solid fa-lock"></i>
+        <input type="password" id="reg-pass" placeholder="Create Password">
+        <i class="fa-regular fa-eye-slash pass-eye" onclick="togglePassVis('reg-pass', this)"></i>
+        <span class="req-star">*</span>
+      </div>
+      <div class="neon-input-pill">
+        <i class="fa-solid fa-lock"></i>
+        <input type="password" id="reg-confirm-pass" placeholder="Confirm Password">
+        <i class="fa-regular fa-eye-slash pass-eye" onclick="togglePassVis('reg-confirm-pass', this)"></i>
+        <span class="req-star">*</span>
+      </div>
+
+      <label class="terms-row">
+        <input type="checkbox" id="reg-terms" checked>
+        <span>I agree to the <b>Terms &amp; Conditions</b> and <b>Privacy Policy</b> <b style="color:#ef4444;">*</b></span>
+      </label>
+
+      <button class="main-create-btn" id="main-submit-btn" onclick="submitRegistration()">
+        <i class="fa-solid fa-user-plus" id="main-submit-icon"></i>
+        <span id="main-submit-txt">Create Account</span>
+        <i class="fa-solid fa-chevron-right" style="margin-left:auto;"></i>
+      </button>
+
+      <div class="auth-or-divider">OR</div>
+
+      <button class="google-white-btn" onclick="openGoogleChooser()">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
+        <span>Sign Up with Google</span>
+      </button>
     </div>
   </div>
 
-  <!-- ४. CREATE POST & PROFILE MODALS -->
-  <div id="create-modal" class="modal-overlay">
-    <div class="modal-box">
-      <div class="modal-header"><span class="modal-title">Create Post</span><button class="close-btn" onclick="closeModals()">✕</button></div>
-      <div class="form-group"><label>कॅप्शन</label><textarea id="new-post-text" class="form-input" rows="2"></textarea></div>
-      <div class="form-group"><label>लोकेशन</label><input type="text" id="new-post-loc" class="form-input" value="Buldana, Maharashtra"></div>
-      <div class="form-group"><label>फोटो निवडा</label><input type="file" accept="image/*" class="form-input" onchange="loadNewPostImg(event)"></div>
-      <button class="submit-btn" onclick="publishPost()">Publish Now 🚀</button>
+  <!-- =========================================================
+       2. GOOGLE ACCOUNT CHOOSER MODAL
+       ========================================================= -->
+  <div id="google-chooser-modal" class="modal-overlay" style="z-index:4500;">
+    <div class="google-popup-card">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="g-top-logo">
+      <h3>Sign in with Google</h3>
+      <p>Choose an account</p>
+      <div id="google-accounts-list"></div>
+      <div class="g-acc-row" onclick="promptCustomGoogleAccount()">
+        <div class="g-avatar-icon" style="background:#f1f5f9; color:#334155;"><i class="fa-solid fa-user-plus"></i></div>
+        <div class="g-acc-mail">Use another account</div>
+      </div>
+      <div id="custom-g-input-box" style="display:none; padding:10px 0;">
+        <input type="text" id="custom-g-name" placeholder="तुमचे किंवा व्यवसायाचे नाव" class="g-custom-field">
+        <input type="email" id="custom-g-email" placeholder="yourname@gmail.com" class="g-custom-field">
+        <button class="g-continue-btn" onclick="loginWithCustomGoogle()">Continue</button>
+      </div>
+      <button class="g-cancel-btn" onclick="closeGoogleChooser()">Cancel</button>
     </div>
   </div>
 
-  <div id="profile-modal" class="modal-overlay">
-    <div class="modal-box" style="text-align:center;">
-      <div class="modal-header"><span class="modal-title">My Profile</span><button class="close-btn" onclick="closeModals()">✕</button></div>
-      <h3 id="prof-name"></h3>
-      <p id="prof-type" style="font-size:11px; color:#38bdf8; margin:4px 0;"></p>
-      <p id="prof-loc" style="font-size:12px; color:#cbd5e1; margin-bottom:10px;"></p>
-      <div id="prof-extra" style="background:rgba(255,255,255,0.06); padding:10px; border-radius:12px; text-align:left; font-size:12px; margin-bottom:12px;"></div>
-      <button class="submit-btn" style="background:#ef4444;" onclick="logoutUser()">Log Out</button>
-    </div>
-  </div>
+  <!-- =========================================================
+       3. MAIN APP SHELL (HOME, EXPLORE, NEARBY, MESSAGE, ME)
+       ========================================================= -->
+  <div id="main-app-shell" style="display:none;">
 
-  <!-- ५. MAIN FEED SCREEN -->
-  <div id="app-feed-screen">
-    <div class="app-header">
-      <div class="brand-logo-wrap">
-        <i class="fa-solid fa-ring brand-icon"></i>
-        <div><span class="brand-name">ALBIZNET</span><span class="brand-sub">CONNECT &bull; SHARE &bull; GROW</span></div>
+    <header class="top-app-header" id="main-top-header">
+      <div class="header-brand-box">
+        <div class="header-logo-a">A</div>
+        <div>
+          <div class="header-title">ALBIZNET</div>
+          <div class="header-sub">Connect &bull; Share &bull; Grow</div>
+        </div>
       </div>
-      <div class="header-right">
-        <button class="create-pill" onclick="openCreateModal()">+ Create</button>
-        <div class="circle-icon" onclick="alert('3 Messages!')"><i class="fa-regular fa-comment-dots"></i><span class="badge">3</span></div>
-      </div>
-    </div>
 
-    <div class="tabs-container">
-      <div class="tab-pill active" id="tab-foryou" onclick="switchFeedTab('foryou')">🔥 For You</div>
-      <div class="tab-pill" id="tab-nearby" onclick="switchFeedTab('nearby')">📍 Nearby</div>
-      <div class="tab-pill" id="tab-creators" onclick="switchFeedTab('creators')">🌟 Creators</div>
-    </div>
-
-    <div class="moments-row">
-      <div class="moment-card-add" onclick="openCreateModal()">📸<br>Your<br>Moment</div>
-      <div class="story-user"><div class="story-ring"><img src="https://i.pravatar.cc/150?img=11"></div>Rohit</div>
-      <div class="story-user"><div class="story-ring"><img src="https://i.pravatar.cc/150?img=5"></div>Sneha</div>
-      <div class="story-user"><div class="story-ring"><img src="https://i.pravatar.cc/150?img=12"></div>Aditya</div>
-      <div class="story-user"><div class="story-ring"><img src="https://i.pravatar.cc/150?img=9"></div>Pooja</div>
-    </div>
-
-    <div class="feed-container" id="posts-feed">
-      <div class="post-card">
-        <div class="author-box">
-          <img class="author-img" src="https://i.pravatar.cc/150?img=11">
-          <div>
-            <div class="author-name">Aarav Kulkarni <i class="fa-solid fa-certificate blue-tick"></i></div>
-            <div class="post-meta"><i class="fa-solid fa-location-dot"></i> Buldana &bull; 12 min &bull; Public</div>
+      <div class="header-actions">
+        <div class="header-search-pill" onclick="switchBottomNav('explore')">
+          <i class="fa-solid fa-magnifying-glass"></i> Search
+        </div>
+        <div style="position:relative;">
+          <button class="header-create-btn" onclick="toggleCreatePopupMenu(event)">+ Create</button>
+          <div id="create-dropdown-menu" class="create-popup-menu">
+            <div class="c-menu-item" onclick="openCreateContentModal('Post')"><i class="fa-regular fa-pen-to-square"></i> Post</div>
+            <div class="c-menu-item" onclick="openCreateContentModal('Story')"><i class="fa-solid fa-circle-plus"></i> Story</div>
+            <div class="c-menu-item" onclick="openCreateContentModal('Reel')"><i class="fa-solid fa-clapperboard"></i> Reel</div>
+            <div class="c-menu-item" onclick="openCreateContentModal('Live')"><i class="fa-solid fa-tower-broadcast"></i> Live</div>
+            <div class="c-menu-item" onclick="openCreateContentModal('Note')"><i class="fa-regular fa-comment-dots"></i> Note</div>
+            <div class="c-menu-Item-divider"></div>
+            <div class="c-menu-item" onclick="openCreateContentModal('Offer')" style="color:#4f46e5;"><i class="fa-solid fa-tags"></i> Offer 🏷️</div>
+            <div class="c-menu-item" onclick="openCreateContentModal('Product')" style="color:#7e22ce;"><i class="fa-solid fa-bag-shopping"></i> Product 🛍️</div>
           </div>
         </div>
-        <div class="post-caption">Small town. Big dreams. 🌅✨</div>
-        <div class="post-media-box">
-          <img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=900&q=80">
-          <div class="location-overlay"><i class="fa-solid fa-location-dot"></i> Buldana, Maharashtra</div>
+        <div class="header-bell-btn" onclick="showToast('🔔 3 नवीन नोटिफिकेशन्स आहेत!')">
+          <i class="fa-regular fa-bell"></i>
+          <span class="bell-dot"></span>
         </div>
-        <div class="post-buttons">
-          <button class="btn-vibe" onclick="giveVibe(this)"><i class="fa-solid fa-fire"></i> Vibe</button>
-          <button class="btn-secondary-act" onclick="toggleReplyBox(this)"><i class="fa-regular fa-comment-dots"></i> Reply</button>
-          <button class="btn-secondary-act" onclick="remixPost('Aarav Kulkarni')"><i class="fa-solid fa-wand-magic-sparkles"></i> Remix</button>
+      </div>
+    </header>
+
+    <!-- TAB 1: HOME FEED VIEW -->
+    <div id="view-home" class="app-tab-view">
+      <div class="moments-scroll-bar">
+        <div class="your-moment-box" onclick="openCreateContentModal('Story')">
+          <div class="cam-icon-wrap"><i class="fa-solid fa-camera"></i></div>
+          <span>Your<br>Moment</span>
+          <div class="plus-mini-badge">+</div>
         </div>
-        <div class="reply-box">
-          <div class="reply-input-row">
-            <input type="text" placeholder="प्रतिक्रिया लिहा..."><button onclick="addReply(this)">Send</button>
+        <div class="story-circle-item" onclick="openImageLightbox('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80', 'Rohit\'s Moment')">
+          <div class="story-grad-ring"><img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80"><span class="story-plus">+</span></div>
+          <span>Rohit</span>
+        </div>
+        <div class="story-circle-item" onclick="openImageLightbox('https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=600&q=80', 'Sneha\'s Moment')">
+          <div class="story-grad-ring"><img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80"></div>
+          <span>Sneha</span>
+        </div>
+        <div class="story-circle-item" onclick="openImageLightbox('https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80', 'Aditya\'s Moment')">
+          <div class="story-grad-ring"><img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80"></div>
+          <span>Aditya</span>
+        </div>
+        <div class="story-circle-item" onclick="openImageLightbox('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80', 'Pooja\'s Moment')">
+          <div class="story-grad-ring"><img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"></div>
+          <span>Pooja</span>
+        </div>
+      </div>
+
+      <div class="shorts-section-card">
+        <div class="shorts-title-row">
+          <h3>Shorts &amp; Reels ⚡</h3>
+        </div>
+        <div class="shorts-scroll-row" id="reels-container"></div>
+      </div>
+
+      <div id="home-posts-feed" class="feed-posts-wrap"></div>
+    </div>
+
+    <!-- TAB 2: EXPLORE VIEW -->
+    <div id="view-explore" class="app-tab-view" style="display:none;">
+      <div class="subpage-search-wrap">
+        <div class="search-input-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="explore-search-input" placeholder="Search people, businesses, posts..." onkeyup="renderExploreOffers()">
+        </div>
+      </div>
+      <div class="filter-chips-scroll">
+        <span class="f-chip active" onclick="selectExploreChip('Offers', this)">🛍️ Offers</span>
+        <span class="f-chip" onclick="selectExploreChip('Jobs', this)">💼 Jobs</span>
+        <span class="f-chip" onclick="selectExploreChip('Trending Reels', this)">🎬 Trending Reels</span>
+        <span class="f-chip" onclick="selectExploreChip('News', this)">📰 News</span>
+        <span class="f-chip" onclick="selectExploreChip('Food', this)">🍔 Food</span>
+      </div>
+      <div class="explore-heading">आजूबाजूच्या ऑफर्स 🏷️ or Explore Offers</div>
+      <div id="explore-offers-list" class="offers-list-container"></div>
+    </div>
+
+    <!-- TAB 3: NEARBY VIEW -->
+    <div id="view-nearby" class="app-tab-view" style="display:none;">
+      <div class="nearby-top-bar">
+        <div>
+          <h1 class="nearby-big-title">Nearby</h1>
+          <div class="nearby-sub-loc"><i class="fa-solid fa-location-dot" style="color:#4f46e5;"></i> <span id="nearby-user-loc-txt">Ardhapur, Maharashtra</span></div>
+        </div>
+        <button class="map-view-pill-btn" onclick="openGoogleMapLink('Ardhapur, Maharashtra')">Map View 🗺️</button>
+      </div>
+      <div class="subpage-search-wrap" style="padding-top:4px;">
+        <div class="search-input-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="nearby-search-input" placeholder="Search nearby businesses, services..." onkeyup="renderNearbyStores()">
+        </div>
+      </div>
+      <div class="filter-chips-scroll">
+        <span class="f-chip active-blue" onclick="filterNearbyCat('All', this)">🌐 All</span>
+        <span class="f-chip" onclick="filterNearbyCat('Shops', this)">🏪 Shops</span>
+        <span class="f-chip" onclick="filterNearbyCat('Services', this)">🛠️ Services</span>
+        <span class="f-chip" onclick="filterNearbyCat('Restaurants', this)">🍽️ Restaurants</span>
+        <span class="f-chip" onclick="filterNearbyCat('Deals', this)">🏷️ Deals</span>
+      </div>
+      <div id="nearby-stores-list" class="nearby-list-wrap"></div>
+    </div>
+
+    <!-- TAB 4: MESSAGES VIEW -->
+    <div id="view-messages" class="app-tab-view" style="display:none;">
+      <div class="msg-top-header">
+        <div class="header-logo-a" style="width:32px; height:32px; font-size:16px;">A</div>
+        <div>
+          <div class="header-title" style="font-size:18px;">ALBIZNET</div>
+          <div class="header-sub">CONNECT &bull; SHARE &bull; GROW</div>
+        </div>
+      </div>
+      <div class="subpage-search-wrap">
+        <div class="search-input-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="msg-search-input" placeholder="Search messages..." onkeyup="renderMessagesList()">
+          <i class="fa-solid fa-microphone" style="color:#64748b;"></i>
+        </div>
+      </div>
+      <div class="moments-scroll-bar" style="padding-top:4px;">
+        <div class="your-note-card" onclick="openCreateContentModal('Note')">Your<br>note</div>
+        <div class="story-circle-item"><div class="story-grad-ring"><img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80"></div><span>Rohit</span></div>
+        <div class="story-circle-item"><div class="story-grad-ring"><img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80"></div><span>Sneha</span></div>
+        <div class="story-circle-item"><div class="story-grad-ring"><img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80"></div><span>Aditya</span></div>
+      </div>
+      <h2 class="messages-sec-title">Messages</h2>
+      <div class="msg-tabs-row">
+        <span class="m-tab active" onclick="switchMsgTab('Inbox', this)">Inbox</span>
+        <span class="m-tab" onclick="switchMsgTab('Unread', this)">Unread</span>
+        <span class="m-tab" onclick="switchMsgTab('Marketplace', this)">Marketplace</span>
+        <span class="m-tab" onclick="switchMsgTab('Request', this)">Request</span>
+      </div>
+      <div id="messages-chat-list" class="chat-list-box"></div>
+    </div>
+
+    <!-- TAB 5: ME / PROFILE VIEW (PEOPLE & BUSINESS) -->
+    <div id="view-profile" class="app-tab-view" style="display:none;">
+      <!-- 5A: PEOPLE PROFILE (WITH FOLLOW BUTTON & WORKING TABS) -->
+      <div id="people-profile-box">
+        <div class="prof-cover-banner" style="background-image:url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=900&q=80');">
+          <button class="prof-top-icon left" onclick="switchBottomNav('home')"><i class="fa-solid fa-arrow-left"></i></button>
+          <div class="prof-top-right-group">
+            <button class="prof-top-icon" onclick="openSettingsScreen()"><i class="fa-solid fa-gear"></i></button>
           </div>
-          <div class="replies-list"></div>
+        </div>
+
+        <div class="prof-body-sheet">
+          <div class="prof-avatar-header">
+            <div class="prof-ring-avatar" onclick="openImageLightbox(document.getElementById('p-prof-avatar').src, document.getElementById('p-prof-name').innerText)">
+              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80" id="p-prof-avatar">
+            </div>
+            <div class="prof-title-col">
+              <h2 id="p-prof-name">Akshay Patil</h2>
+              <span class="p-acc-badge"><i class="fa-solid fa-user"></i> Personal Account</span>
+            </div>
+          </div>
+
+          <div class="prof-stats-bar">
+            <div class="p-stat-col"><strong id="p-stat-followers">0</strong><span>Followers</span></div>
+            <div class="p-stat-divider"></div>
+            <div class="p-stat-col"><strong id="p-stat-following">0</strong><span>Following</span></div>
+            <div class="p-stat-divider"></div>
+            <div class="p-stat-col"><strong id="p-stat-posts">0</strong><span>Posts</span></div>
+          </div>
+
+          <!-- Follow & Message Buttons (Exact match to Image 6) -->
+          <div class="prof-btn-row">
+            <button class="prof-grad-btn" id="p-follow-btn" onclick="toggleFollowPeopleProfile()">
+              <i class="fa-solid fa-user-plus"></i> Follow
+            </button>
+            <button class="prof-light-btn" onclick="switchBottomNav('messages')">
+              <i class="fa-solid fa-comment-dots"></i> Message
+            </button>
+          </div>
+
+          <div class="prof-bio-lines">
+            <p>Dream Big &bull; Work Hard &bull; Stay Positive ❤️</p>
+            <p>Tech Lover | Traveler | Creator 🎬</p>
+            <p>Make a Difference in Life... 👌</p>
+            <div class="prof-meta-row"><i class="fa-solid fa-location-dot"></i> <span id="p-prof-loc">Ardhapur, Maharashtra</span></div>
+            <div class="prof-meta-row"><i class="fa-regular fa-calendar-days"></i> Joined Oct 2026</div>
+          </div>
+
+          <div class="prof-about-box">
+            <h4><i class="fa-solid fa-user"></i> About Me</h4>
+            <p id="p-prof-about">Hi! I'm Akshay, a technology enthusiast, who loves exploring new things, traveling the world and creating amazing content.</p>
+          </div>
+
+          <!-- Interactive Profile Sub-Tabs (Posts, Reels, Moments, Highlights) -->
+          <div class="prof-sub-tabs" id="people-sub-tabs">
+            <span class="active" onclick="switchPeopleMediaTab('posts', this)">Posts</span>
+            <span onclick="switchPeopleMediaTab('reels', this)">Reels</span>
+            <span onclick="switchPeopleMediaTab('moments', this)">Moments</span>
+            <span onclick="switchPeopleMediaTab('highlights', this)">Highlights</span>
+          </div>
+
+          <div class="my-moments-header">
+            <h4 id="p-gallery-heading">✨ My Posts &amp; Moments</h4>
+            <span onclick="openCreateContentModal('Post')" style="cursor:pointer;">+ Add New &gt;</span>
+          </div>
+
+          <!-- Clickable Gallery Grid (Opens Fullscreen Lightbox) -->
+          <div class="my-moments-grid" id="people-media-grid">
+            <!-- Dynamically populated via JS -->
+          </div>
+        </div>
+      </div>
+
+      <!-- 5B: BUSINESS PROFILE -->
+      <div id="business-profile-box" style="display:none;">
+        <div class="prof-cover-banner" style="background-image:url('https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=900&q=80');">
+          <button class="prof-top-icon left" onclick="switchBottomNav('nearby')"><i class="fa-solid fa-arrow-left"></i></button>
+          <div class="prof-top-right-group">
+            <button class="prof-top-icon" onclick="openSettingsScreen()"><i class="fa-solid fa-gear"></i></button>
+          </div>
+        </div>
+
+        <div class="prof-body-sheet">
+          <div class="prof-avatar-header">
+            <div class="prof-ring-avatar">
+              <img src="https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=300&q=80" id="b-prof-logo">
+            </div>
+            <div class="prof-title-col">
+              <h2 id="b-prof-name">Royal Fashion</h2>
+              <div id="b-prof-cat" style="font-size:12px; color:#475569; font-weight:600;">Clothing &amp; Fashion Store</div>
+              <div style="font-size:12px; font-weight:700; margin-top:2px;">
+                ⭐ 4.8 &bull; <span id="b-stat-followers">0</span> Followers &bull; <span id="b-stat-following">0</span> Following
+              </div>
+            </div>
+          </div>
+
+          <div class="prof-btn-row" style="margin-top:12px;">
+            <button class="prof-grad-btn" id="biz-follow-btn" onclick="toggleFollowActiveBiz()">+ Follow</button>
+            <button class="prof-grad-btn" style="background:#2563eb;" onclick="startChatWithActiveBiz()"><i class="fa-solid fa-comment-dots"></i> Message</button>
+          </div>
+
+          <div class="biz-four-circles">
+            <div class="b-cir-item" onclick="callActiveBiz()">
+              <div class="b-cir-icon"><i class="fa-solid fa-phone"></i></div>
+              <span>Call</span>
+            </div>
+            <div class="b-cir-item" onclick="directionsActiveBiz()">
+              <div class="b-cir-icon"><i class="fa-solid fa-diamond-turn-right"></i></div>
+              <span>Directions</span>
+            </div>
+            <div class="b-cir-item" onclick="showToast('🌐 Opening Website...')">
+              <div class="b-cir-icon"><i class="fa-solid fa-globe"></i></div>
+              <span>Website</span>
+            </div>
+            <div class="b-cir-item" onclick="showToast('🔖 Store Saved!')">
+              <div class="b-cir-icon"><i class="fa-solid fa-bookmark"></i></div>
+              <span>Save</span>
+            </div>
+          </div>
+
+          <div class="biz-about-block">
+            <h4>About This Business</h4>
+            <p id="b-prof-about">Trendy fashion for everyone! 👕✨ Premium quality clothes at the best price.</p>
+            <div class="prof-meta-row" style="margin-top:6px;"><i class="fa-solid fa-location-dot"></i> <span id="b-prof-loc">Ardhapur, Maharashtra</span></div>
+            <div class="prof-meta-row"><i class="fa-solid fa-phone"></i> <span id="b-prof-phone">+91 98765 43210</span></div>
+          </div>
+
+          <div class="prof-sub-tabs">
+            <span>Posts</span>
+            <span class="active" onclick="openFullCatalogModal()">Products</span>
+            <span>Reviews</span>
+            <span onclick="directionsActiveBiz()">Location</span>
+          </div>
+
+          <div class="my-moments-header">
+            <h4>🛍️ Products</h4>
+            <span onclick="openFullCatalogModal()" style="cursor:pointer;">See All &gt;</span>
+          </div>
+
+          <div class="biz-mini-products-row" id="biz-mini-products"></div>
         </div>
       </div>
     </div>
 
-    <div class="bottom-nav-wrap">
-      <div class="nav-item active" onclick="switchFeedTab('foryou')"><i class="fa-solid fa-house"></i>Home</div>
-      <div class="nav-item" onclick="switchFeedTab('nearby')"><i class="fa-regular fa-compass"></i>Explore</div>
-      <div class="nav-center-plus" onclick="openCreateModal()"><i class="fa-solid fa-plus"></i></div>
-      <div class="nav-item" onclick="alert('Inbox')"><i class="fa-regular fa-envelope"></i>Inbox</div>
-      <div class="nav-item" onclick="showMyProfile()"><i class="fa-regular fa-user"></i>Me</div>
+    <!-- FIXED FULL-WIDTH BOTTOM NAVIGATION BAR -->
+    <nav class="bottom-nav-bar">
+      <div class="b-nav-item active" id="bnav-home" onclick="switchBottomNav('home')">
+        <i class="fa-solid fa-house"></i>
+        <span>Home</span>
+      </div>
+      <div class="b-nav-item" id="bnav-explore" onclick="switchBottomNav('explore')">
+        <i class="fa-regular fa-compass"></i>
+        <span>Explore</span>
+      </div>
+      <div class="b-nav-item" id="bnav-nearby" onclick="switchBottomNav('nearby')">
+        <i class="fa-solid fa-location-dot"></i>
+        <span>Nearby</span>
+      </div>
+      <div class="b-nav-item" id="bnav-messages" onclick="switchBottomNav('messages')">
+        <div style="position:relative; display:inline-block;">
+          <i class="fa-regular fa-comment-dots"></i>
+          <span class="msg-badge-count">3</span>
+        </div>
+        <span>Message</span>
+      </div>
+      <div class="b-nav-item" id="bnav-profile" onclick="switchBottomNav('profile')">
+        <i class="fa-regular fa-user"></i>
+        <span>Me</span>
+      </div>
+    </nav>
+
+  </div>
+
+  <!-- =========================================================
+       4. FULLSCREEN IMAGE / GALLERY LIGHTBOX MODAL
+       ========================================================= -->
+  <div id="gallery-lightbox-modal" class="modal-overlay" style="z-index:5000; background:rgba(0,0,0,0.92);" onclick="closeImageLightbox()">
+    <div style="width:100%; max-width:420px; text-align:center; position:relative;" onclick="event.stopPropagation()">
+      <button onclick="closeImageLightbox()" style="position:absolute; top:-42px; right:8px; background:white; border:none; width:34px; height:34px; border-radius:50%; font-weight:900; cursor:pointer;">✕</button>
+      <img id="lightbox-img" src="" style="width:100%; max-height:72vh; object-fit:contain; border-radius:16px;">
+      <p id="lightbox-caption" style="color:white; font-size:14px; font-weight:600; margin-top:12px;"></p>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       5. PRODUCTS CATALOG & PRODUCT DETAILS MODALS
+       ========================================================= -->
+  <div id="catalog-modal" class="modal-overlay" style="padding:0; z-index:2500;">
+    <div class="full-screen-sheet">
+      <div class="sheet-top-bar">
+        <button onclick="closeCatalogModal()"><i class="fa-solid fa-arrow-left"></i></button>
+        <h3>Products</h3>
+        <button><i class="fa-solid fa-magnifying-glass"></i></button>
+      </div>
+      <div class="filter-chips-scroll" style="padding-top:10px;">
+        <span class="f-chip active-blue" onclick="filterCatalogItems('All', this)">All Products</span>
+        <span class="f-chip" onclick="filterCatalogItems('Men', this)">Men</span>
+        <span class="f-chip" onclick="filterCatalogItems('Women', this)">Women</span>
+        <span class="f-chip" onclick="filterCatalogItems('Accessories', this)">Accessories</span>
+      </div>
+      <div class="subpage-search-wrap">
+        <div class="search-input-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="catalog-search-q" placeholder="Search products..." onkeyup="searchCatalogItems()">
+        </div>
+      </div>
+      <div class="catalog-2col-grid" id="catalog-grid-box"></div>
+    </div>
+  </div>
+
+  <div id="product-detail-modal" class="modal-overlay" style="padding:0; z-index:2800;">
+    <div class="full-screen-sheet" style="background:white;">
+      <div class="sheet-top-bar">
+        <button onclick="closeProductDetailModal()"><i class="fa-solid fa-arrow-left"></i></button>
+        <h3>Product Details</h3>
+        <button onclick="showToast('🔗 प्रॉडक्ट लिंक शेअर केली!')"><i class="fa-solid fa-share-nodes"></i></button>
+      </div>
+      <div class="p-detail-img-wrap">
+        <img id="pd-main-img" src="" onclick="openImageLightbox(this.src, document.getElementById('pd-title').innerText)">
+        <span class="pd-img-counter">1 / 5</span>
+      </div>
+      <div class="pd-thumbs-bar" id="pd-thumbs-row"></div>
+      <div class="pd-info-body">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h2 id="pd-title">Royal Hoodie</h2>
+          <span id="pd-price" style="font-size:19px; font-weight:900; color:#2563eb;">₹999</span>
+        </div>
+        <div style="font-size:12.5px; font-weight:700; margin:4px 0 8px;">⭐ 4.8 (8.2K Reviews)</div>
+        <p id="pd-desc" style="font-size:12.5px; color:#334155; line-height:1.5; margin-bottom:12px;"></p>
+        <div class="pd-specs-box">
+          <div><span>🏷️ Category</span><b>: <span id="pd-cat">Men's Fashion</span></b></div>
+          <div><span>🧵 Material</span><b>: <span id="pd-mat">Cotton Blend</span></b></div>
+          <div><span>📏 Sizes</span><b>: <span id="pd-sizes">S, M, L, XL, XXL</span></b></div>
+          <div><span>🎨 Colors</span><b>: <span id="pd-colors">Black, Navy, Grey</span></b></div>
+        </div>
+        <div style="color:#16a34a; font-weight:800; font-size:13px; margin:10px 0;"><i class="fa-solid fa-circle-check"></i> In Stock</div>
+        <button class="pd-primary-btn" onclick="startChatWithActiveBiz()"><i class="fa-solid fa-comment-dots"></i> Message</button>
+        <button class="pd-outline-btn" onclick="callActiveBiz()"><i class="fa-solid fa-phone"></i> Contact Seller</button>
+        <button class="pd-outline-btn" onclick="showToast('🔗 Product Shared!')"><i class="fa-solid fa-share"></i> Share Product</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       6. SETTINGS & PRIVACY MODAL
+       ========================================================= -->
+  <div id="settings-modal" class="modal-overlay" style="padding:0; z-index:3200;">
+    <div class="full-screen-sheet" style="background:#eef2ff;">
+      <div class="sheet-top-bar" style="background:transparent;">
+        <button onclick="closeSettingsScreen()"><i class="fa-solid fa-arrow-left"></i></button>
+        <h3>Settings &amp; Privacy</h3>
+        <button><i class="fa-solid fa-gear" style="color:#4f46e5;"></i></button>
+      </div>
+      <div class="settings-user-banner">
+        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80" id="set-banner-img">
+        <div style="flex:1;">
+          <h4 id="set-banner-name">Akshay Patil</h4>
+          <p id="set-banner-sub">@akshaypatil</p>
+        </div>
+        <button class="view-prof-pill" onclick="closeSettingsScreen()">View Profile &gt;</button>
+      </div>
+      <div id="settings-grid-content" class="settings-2col-grid"></div>
+      <div style="padding:16px;">
+        <button class="logout-full-btn" onclick="logoutCurrentUser()"><i class="fa-solid fa-right-from-bracket"></i> Log Out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       7. CREATE CONTENT MODAL
+       ========================================================= -->
+  <div id="create-content-modal" class="modal-overlay" style="z-index:3500;">
+    <div class="create-box-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 id="create-modal-title" style="color:#1e1b4b; font-size:17px; font-weight:800;">Create New Post</h3>
+        <button onclick="closeCreateContentModal()" style="border:none; background:#f1f5f9; width:30px; height:30px; border-radius:50%; font-weight:bold;">✕</button>
+      </div>
+      <input type="text" id="cr-title-input" placeholder="Caption / Title लिहा..." class="cr-input">
+      <input type="text" id="cr-sub-input" placeholder="Category किंवा Offer सवलत माहिती..." class="cr-input" style="display:none;">
+      <input type="text" id="cr-price-input" placeholder="Price (उदा. ₹999)" class="cr-input" style="display:none;">
+      <label style="font-size:11.5px; font-weight:700; color:#475569; display:block; margin:6px 0 4px;">फोटो निवडा (Choose Image):</label>
+      <input type="file" accept="image/*" onchange="handleFileSelect(event)" class="cr-input">
+      <button class="pd-primary-btn" style="margin-top:10px;" onclick="publishCreatedContent()">Publish Now 🚀</button>
     </div>
   </div>
 
