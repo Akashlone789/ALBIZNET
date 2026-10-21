@@ -1,360 +1,696 @@
-let currentAccountType = 'people';
-let loginVerifyType = 'mobile';
-let signupVerifyType = 'mobile';
-let generatedOTP = "";
-let uploadedImgURL = "";
-let userCurrentCoords = { lat: 19.1383, lng: 77.3210 };
+// ============================================================================
+// ALBIZNET - 100% REAL-TIME FIREBASE BACKEND (NO DUMMY DATA)
+// ============================================================================
 
-let currentUser = JSON.parse(localStorage.getItem("albiz_user")) || null;
-let savedPosts = JSON.parse(localStorage.getItem("albiz_posts")) || [];
-
-let allBusinesses = [
-  { name: "Maharashtra Electronics", owner: "संतोष देशमुख", products: "Mobile, Laptop, TV", location: "Main Market, Nanded", lat: 19.1400, lng: 77.3200, contact: "9876543210" },
-  { name: "Shree Ganesh Kirana Stores", owner: "राहुल पाटील", products: "Grocery, Daily Needs", location: "Near Bus Stand, Buldana", lat: 19.4650, lng: 76.5580, contact: "8765432109" },
-  { name: "Royal Fashion & Clothings", owner: "स्नेहा शहा", products: "Mens & Womens Wear", location: "Shivaji Nagar, Nanded", lat: 19.1500, lng: 77.3150, contact: "7654321098" }
-];
-
-window.onload = function() {
-  const customUI = `
-    <div id="custom-toast" style="display:none; position:fixed; top:18px; left:50%; transform:translateX(-50%); background:linear-gradient(90deg, #0284c7, #7e22ce); color:white; padding:12px 20px; border-radius:30px; z-index:9999; font-size:13px; font-weight:600; box-shadow:0 8px 25px rgba(0,0,0,0.4); width:90%; max-width:360px; text-align:center; border:1px solid rgba(255,255,255,0.3);"></div>
-
-    <div id="native-google-modal" class="modal-overlay" style="z-index:3000; display:none;">
-      <div class="modal-box" style="background:white; color:#1e293b; max-width:340px; text-align:center; padding:20px; border-radius:24px; box-shadow:0 15px 35px rgba(0,0,0,0.3);">
-        <img src="https://www.gstatic.com/images/branding/googlelogo/2x/googlelogo_color_92x30dp.png" style="height:24px; margin-bottom:6px;">
-        <h3 style="font-size:17px; font-weight:700; color:#0f172a; margin-bottom:4px;">Sign in with Google</h3>
-        <p style="font-size:11.5px; color:#64748b; margin-bottom:14px;">Choose your Gmail account for <b>ALBIZNET</b></p>
-        
-        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:14px; padding:12px; margin-bottom:12px; text-align:left;">
-          <label style="font-size:11px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">तुमचा Gmail आयडी टाका / निवडा:</label>
-          <input type="email" id="native-gmail-input" autocomplete="email" placeholder="yourname@gmail.com" style="width:100%; padding:10px 12px; border:1px solid #94a3b8; border-radius:10px; font-size:13px; background:white; color:#0f172a; outline:none;">
-        </div>
-
-        <div style="background:#f8fafc; border:1px solid #cbd5e1; border-radius:14px; padding:10px 12px; margin-bottom:14px; text-align:left;">
-          <label style="font-size:11px; font-weight:600; color:#475569; display:block; margin-bottom:4px;">तुमचे किंवा व्यवसायाचे नाव:</label>
-          <input type="text" id="native-name-input" placeholder="उदा. Akash Lone" style="width:100%; padding:8px 10px; border:1px solid #94a3b8; border-radius:8px; font-size:13px; background:white; color:#0f172a; outline:none;">
-        </div>
-
-        <button onclick="submitNativeGoogle()" style="width:100%; padding:11px; background:#1a73e8; color:white; border:none; border-radius:20px; font-weight:700; font-size:13.5px; cursor:pointer; margin-bottom:8px;">Continue</button>
-        <button onclick="document.getElementById('native-google-modal').style.display='none'" style="background:none; border:none; color:#64748b; font-size:12px; font-weight:600; cursor:pointer;">Cancel</button>
-      </div>
-    </div>
-  `;
-  document.body.insertAdjacentHTML('beforeend', customUI);
-
-  if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition((position) => {
-      userCurrentCoords.lat = position.coords.latitude;
-      userCurrentCoords.lng = position.coords.longitude;
-    });
-  }
-
-  if (currentUser) {
-    document.getElementById("welcome-screen").style.display = "none";
-    document.getElementById("app-feed-screen").style.display = "block";
-    renderSavedPosts();
-  }
+// १. येथे तुमचा स्वतःचा Firebase Config कोड पेस्ट करा:
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY_HERE",
+  authDomain: "your-project-id.firebaseapp.com",
+  projectId: "your-project-id",
+  storageBucket: "your-project-id.appspot.com",
+  messagingSenderId: "1234567890",
+  appId: "1:1234567890:web:abcdef123456"
 };
 
+// Firebase SDK ऑटोमॅटिक लोड करणे
+let db, auth;
+let currentUserData = null;
+let activeProfileUser = null;
+let activeChatPeerId = null;
+let authAccountType = 'people';
+let currentCreateMode = 'Post';
+let uploadedDataURL = "";
+
+(function loadFirebaseScripts() {
+  const scripts = [
+    "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js",
+    "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js",
+    "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"
+  ];
+  let loaded = 0;
+  scripts.forEach(src => {
+    let s = document.createElement("script");
+    s.src = src;
+    s.onload = () => {
+      loaded++;
+      if (loaded === scripts.length) initRealFirebaseApp();
+    };
+    document.head.appendChild(s);
+  });
+})();
+
+function initRealFirebaseApp() {
+  if (firebaseConfig.apiKey === "YOUR_API_KEY_HERE") {
+    showToast("⚠️ कृपया app.js मध्ये तुमची Firebase apiKey टाका!");
+    return;
+  }
+  firebase.initializeApp(firebaseConfig);
+  auth = firebase.auth();
+  db = firebase.firestore();
+
+  // रिअल-टाईम युजर सेशन तपासणे
+  auth.onAuthStateChanged(async (user) => {
+    if (user) {
+      const doc = await db.collection("users").doc(user.uid).get();
+      if (doc.exists) {
+        currentUserData = { uid: user.uid, ...doc.data() };
+        launchMainApp();
+      }
+    } else {
+      document.getElementById("main-app-shell").style.display = "none";
+      document.getElementById("welcome-screen").style.display = "flex";
+    }
+  });
+}
+
 function showToast(msg) {
-  const t = document.getElementById("custom-toast");
+  let t = document.getElementById("custom-toast");
   if (!t) return;
   t.innerHTML = msg;
   t.style.display = "block";
-  setTimeout(() => { t.style.display = "none"; }, 4000);
+  setTimeout(() => { t.style.display = "none"; }, 3500);
 }
 
+// ============================================================================
+// 1. REAL AUTHENTICATION (SIGN UP, LOGIN & REAL GOOGLE POPUP)
+// ============================================================================
+function openNeonSignupScreen() {
+  document.getElementById("welcome-screen").style.display = "none";
+  document.getElementById("auth-screen").style.display = "block";
+}
+function backToWelcomeScreen() {
+  document.getElementById("auth-screen").style.display = "none";
+  document.getElementById("welcome-screen").style.display = "flex";
+}
 function openLoginModal() { document.getElementById("login-modal").style.display = "flex"; }
-function openSignupModal() { document.getElementById("signup-modal").style.display = "flex"; }
-function openCreateModal() { document.getElementById("create-modal").style.display = "flex"; }
-function closeModals() {
-  document.getElementById("login-modal").style.display = "none";
-  document.getElementById("signup-modal").style.display = "none";
-  document.getElementById("create-modal").style.display = "none";
-  document.getElementById("profile-modal").style.display = "none";
-  let gm = document.getElementById("native-google-modal");
-  if (gm) gm.style.display = "none";
+function closeLoginModal() { document.getElementById("login-modal").style.display = "none"; }
+
+function switchAuthAccount(type) {
+  authAccountType = type;
+  let isP = (type === 'people');
+  document.getElementById("tab-acc-people").classList.toggle("active", isP);
+  document.getElementById("tab-acc-business").classList.toggle("active", !isP);
+  document.getElementById("auth-people-fields").style.display = isP ? "block" : "none";
+  document.getElementById("auth-business-fields").style.display = isP ? "none" : "block";
+  document.getElementById("auth-biz-about-wrap").style.display = isP ? "none" : "block";
 }
 
-function selectAccountType(type) {
-  currentAccountType = type;
-  document.getElementById("tab-people").classList.toggle("active", type === 'people');
-  document.getElementById("tab-business").classList.toggle("active", type === 'business');
-  document.getElementById("people-fields").style.display = (type === 'people') ? "block" : "none";
-  document.getElementById("business-fields").style.display = (type === 'business') ? "block" : "none";
+function switchVerifyTab(method) {
+  let isMob = (method === 'mobile');
+  document.getElementById("tab-ver-mobile").classList.toggle("active", isMob);
+  document.getElementById("tab-ver-email").classList.toggle("active", !isMob);
+  document.getElementById("ver-mobile-box").style.display = isMob ? "flex" : "none";
+  document.getElementById("ver-email-box").style.display = isMob ? "none" : "flex";
 }
 
-function switchVerifyMethod(modal, method) {
-  if (modal === 'login') {
-    loginVerifyType = method;
-    document.getElementById("login-tab-mob").classList.toggle("active", method === 'mobile');
-    document.getElementById("login-tab-mail").classList.toggle("active", method === 'email');
-    document.getElementById("login-mob-box").style.display = (method === 'mobile') ? "block" : "none";
-    document.getElementById("login-mail-box").style.display = (method === 'email') ? "block" : "none";
-  } else {
-    signupVerifyType = method;
-    document.getElementById("signup-tab-mob").classList.toggle("active", method === 'mobile');
-    document.getElementById("signup-tab-mail").classList.toggle("active", method === 'email');
-    document.getElementById("signup-mob-box").style.display = (method === 'mobile') ? "block" : "none";
-    document.getElementById("signup-mail-box").style.display = (method === 'email') ? "block" : "none";
-  }
-}
-
-function sendOTP(mode, via) {
-  generatedOTP = Math.floor(1000 + Math.random() * 9000).toString();
-  if (via === 'mobile') {
-    let mob = document.getElementById(mode + "-mobile").value;
-    if (!mob || mob.length < 10) { showToast("⚠️ कृपया १० अंकी मोबाईल नंबर टाका!"); return; }
-    showToast(`📱 SMS OTP (${mob}): <b>${generatedOTP}</b>`);
-  } else {
-    let mail = document.getElementById(mode + "-email").value;
-    if (!mail || !mail.includes("@")) { showToast("⚠️ कृपया वैध Gmail आयडी टाका!"); return; }
-    showToast(`✉️ Gmail OTP (${mail}): <b>${generatedOTP}</b>`);
-  }
-  document.getElementById(mode + "-otp").value = generatedOTP;
-}
-
-function handleGoogleSignIn() {
-  document.getElementById("native-google-modal").style.display = "flex";
-}
-
-function submitNativeGoogle() {
-  let email = document.getElementById("native-gmail-input").value;
-  let name = document.getElementById("native-name-input").value;
-  if (!email || !email.includes("@")) { showToast("⚠️ कृपया वैध Gmail टाका!"); return; }
-  if (!name) name = email.split("@")[0];
-
-  currentUser = {
-    type: currentAccountType,
-    name: name,
-    owner: name,
-    dob: "2000-01-01",
-    products: "All Services",
-    location: "Nanded, Maharashtra",
-    lat: userCurrentCoords.lat,
-    lng: userCurrentCoords.lng,
-    contact: email + " (Google Verified ✅)"
-  };
-
-  localStorage.setItem("albiz_user", JSON.stringify(currentUser));
-  closeModals();
-  document.getElementById("welcome-screen").style.display = "none";
-  document.getElementById("app-feed-screen").style.display = "block";
-  showToast(`🎉 स्वागत आहे, ${currentUser.name}!`);
-  renderSavedPosts();
-}
-
-function detectGPS(inputId) {
-  let input = document.getElementById(inputId);
-  input.value = "🛰️ Google GPS शोधत आहे...";
+function detectUserGPS(inputId) {
+  let inp = document.getElementById(inputId);
+  inp.value = "🛰️ GPS शोधत आहे...";
   if (navigator.geolocation) {
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        userCurrentCoords.lat = position.coords.latitude;
-        userCurrentCoords.lng = position.coords.longitude;
-        input.value = `GPS Location (${userCurrentCoords.lat.toFixed(2)}, ${userCurrentCoords.lng.toFixed(2)})`;
-        showToast("📍 Google GPS लोकेशन जोडले!");
-      },
-      () => {
-        input.value = "Nanded, Maharashtra";
-        showToast("📍 लोकेशन सेट झाले!");
-      },
-      { timeout: 8000 }
-    );
-  } else {
-    input.value = "Nanded, Maharashtra";
+    navigator.geolocation.getCurrentPosition(async (pos) => {
+      try {
+        let res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
+        let data = await res.json();
+        let city = data.address.city || data.address.town || data.address.village || "Nanded";
+        let state = data.address.state || "Maharashtra";
+        inp.value = `${city}, ${state}`;
+        showToast("📍 तुमचे खरे GPS लोकेशन जोडले!");
+      } catch (e) {
+        inp.value = `${pos.coords.latitude.toFixed(3)}, ${pos.coords.longitude.toFixed(3)}`;
+      }
+    });
   }
 }
 
-function handleSignup() {
-  let loc = document.getElementById("signup-location").value || "Nanded, Maharashtra";
-  let contactVal = (signupVerifyType === 'mobile') ? document.getElementById("signup-mobile").value : document.getElementById("signup-email").value;
-  let otp = document.getElementById("signup-otp").value;
+// नवीन अकाउंट थेट सर्वरवर तयार करणे
+async function submitRegistration() {
+  let email = document.getElementById("reg-email").value.trim();
+  let mob = document.getElementById("reg-mobile").value.trim();
+  let pass = document.getElementById("reg-pass").value.trim();
+  let loc = document.getElementById("reg-location").value.trim() || "Maharashtra";
 
-  if (!contactVal || !otp) { showToast("⚠️ कृपया संपर्क आणि OTP भरा!"); return; }
-  if (generatedOTP !== "" && otp !== generatedOTP) { showToast("❌ चुकीचा OTP टाकला आहे!"); return; }
-
-  if (currentAccountType === 'people') {
-    let name = document.getElementById("p-name").value;
-    let dob = document.getElementById("p-dob").value;
-    if (!name || !dob) { showToast("⚠️ कृपया नाव आणि जन्मतारीख भरा!"); return; }
-    currentUser = { type: "people", name: name, dob: dob, location: loc, lat: userCurrentCoords.lat, lng: userCurrentCoords.lng, contact: contactVal };
-  } else {
-    let bName = document.getElementById("b-name").value;
-    let owner = document.getElementById("b-owner").value;
-    let prods = document.getElementById("b-products").value;
-    if (!bName || !owner || !prods) { showToast("⚠️ कृपया व्यवसायाची सर्व माहिती भरा!"); return; }
-    currentUser = { type: "business", name: bName, owner: owner, location: loc, lat: userCurrentCoords.lat, lng: userCurrentCoords.lng, contact: contactVal, products: prods };
-    allBusinesses.push({ name: bName, owner: owner, products: prods, location: loc, lat: userCurrentCoords.lat, lng: userCurrentCoords.lng, contact: contactVal });
-    localStorage.setItem("albiz_businesses", JSON.stringify(allBusinesses));
+  // जर युजरने फक्त मोबाईल टाकला असेल तर Firebase Auth साठी ऑटो-ईमेल तयार करणे
+  let authEmail = email || (mob ? `${mob}@albiznet.com` : "");
+  if (!authEmail || pass.length < 6) {
+    showToast("⚠️ कृपया मोबाईल/Gmail आणि किमान ६ अंकी पासवर्ड टाका!");
+    return;
   }
 
-  localStorage.setItem("albiz_user", JSON.stringify(currentUser));
-  closeModals();
+  try {
+    showToast("⏳ अकाउंट तयार होत आहे...");
+    const cred = await auth.createUserWithEmailAndPassword(authEmail, pass);
+    const uid = cred.user.uid;
+
+    let name = authAccountType === 'people'
+      ? document.getElementById("reg-p-name").value.trim()
+      : document.getElementById("reg-b-name").value.trim();
+
+    let userPayload = {
+      uid: uid,
+      type: authAccountType,
+      name: name || "ALBIZNET User",
+      handle: "@" + (name || "user").toLowerCase().replace(/\s+/g, ''),
+      category: authAccountType === 'business' ? (document.getElementById("reg-b-cat").value.trim() || "Shops") : "Personal Account",
+      about: authAccountType === 'business'
+        ? (document.getElementById("reg-b-about").value.trim() || "Welcome to our store!")
+        : `Hi! I'm ${name}, connected on ALBIZNET.`,
+      location: loc,
+      phone: mob,
+      email: email,
+      avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80",
+      followersCount: 0,
+      followingCount: 0,
+      postsCount: 0,
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+
+    await db.collection("users").doc(uid).set(userPayload);
+    currentUserData = userPayload;
+    showToast("🎉 तुमचे रिअल अकाउंट तयार झाले!");
+    launchMainApp();
+  } catch (err) {
+    showToast("❌ Error: " + err.message);
+  }
+}
+
+// रिअल लॉगिन
+async function handleLoginSubmit() {
+  let idVal = document.getElementById("login-id-input").value.trim();
+  let pass = document.getElementById("login-pass-input").value.trim();
+  let authEmail = idVal.includes("@") ? idVal : `${idVal}@albiznet.com`;
+
+  try {
+    await auth.signInWithEmailAndPassword(authEmail, pass);
+    closeLoginModal();
+    showToast("✅ यशस्वीरित्या लॉगिन झाले!");
+  } catch (err) {
+    showToast("❌ लॉगिन एरर: " + err.message);
+  }
+}
+
+// खरा Google Sign-In Popup
+async function openGoogleChooser() {
+  try {
+    const provider = new firebase.auth.GoogleAuthProvider();
+    const res = await auth.signInWithPopup(provider);
+    const u = res.user;
+    const docRef = db.collection("users").doc(u.uid);
+    const snap = await docRef.get();
+
+    if (!snap.exists) {
+      await docRef.set({
+        uid: u.uid,
+        type: authAccountType,
+        name: u.displayName || "User",
+        handle: "@" + (u.email ? u.email.split("@")[0] : "user"),
+        category: authAccountType === 'business' ? "Business Store" : "Personal Account",
+        about: `Hi! I'm ${u.displayName || 'here'} on ALBIZNET.`,
+        location: "Maharashtra, India",
+        phone: u.phoneNumber || "",
+        email: u.email || "",
+        avatar: u.photoURL || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80",
+        followersCount: 0,
+        followingCount: 0,
+        postsCount: 0,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    }
+    showToast(`✅ Google लॉगिन यशस्वी!`);
+  } catch (err) {
+    showToast("❌ Google Sign-In Error: " + err.message);
+  }
+}
+
+// ============================================================================
+// 2. REAL-TIME STREAMS (POSTS, REELS, OFFERS, NEARBY STORES, CHATS)
+// ============================================================================
+function launchMainApp() {
   document.getElementById("welcome-screen").style.display = "none";
-  document.getElementById("app-feed-screen").style.display = "block";
-  showToast(`🎉 अकाउंट तयार झाले! स्वागत आहे, ${currentUser.name}`);
-  renderSavedPosts();
+  document.getElementById("auth-screen").style.display = "none";
+  document.getElementById("main-app-shell").style.display = "block";
+
+  listenToRealPostsAndReels();
+  listenToRealOffers();
+  listenToRealNearbyStores();
+  listenToRealMessages();
+  switchBottomNav('home');
 }
 
-function handleLogin() {
-  let contactVal = (loginVerifyType === 'mobile') ? document.getElementById("login-mobile").value : document.getElementById("login-email").value;
-  let otp = document.getElementById("login-otp").value;
-  if (!contactVal || !otp) { showToast("⚠️ कृपया नंबर आणि OTP भरा!"); return; }
-  if (generatedOTP !== "" && otp !== generatedOTP) { showToast("❌ चुकीचा OTP!"); return; }
+// १. रिअल-टाईम पोस्ट्स आणि रील्स (कोणीही पोस्ट टाकताच सर्वांना दिसेल)
+function listenToRealPostsAndReels() {
+  db.collection("reels").orderBy("createdAt", "desc").onSnapshot(snap => {
+    let rBox = document.getElementById("reels-container");
+    if (snap.empty) {
+      rBox.innerHTML = `<p style="font-size:12px; color:#64748b; padding:10px;">अजून कोणतीही रील नाही. '+ Create ➔ Reel' वरून पहिली रील टाका!</p>`;
+      return;
+    }
+    rBox.innerHTML = snap.docs.map(doc => {
+      let r = doc.data();
+      return `
+        <div class="reel-thumb-card" style="background-image:url('${r.img}');" onclick="openImageLightbox('${r.img}', '🎬 Reel by ${r.author}')">
+          <div class="reel-play-pill"><i class="fa-solid fa-play"></i> Play</div>
+          <div class="reel-bottom-meta">
+            <span class="reel-views-txt">${r.views || 1} Views 🔥</span>
+            <div class="reel-author-row"><span>${r.author}</span><span>0:30</span></div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  });
 
-  if (!currentUser) {
-    let shortName = contactVal.includes("@") ? contactVal.split("@")[0] : "User (" + contactVal.slice(-4) + ")";
-    currentUser = { type: "people", name: shortName, dob: "2000-01-01", location: "Nanded, Maharashtra", lat: userCurrentCoords.lat, lng: userCurrentCoords.lng, contact: contactVal };
-    localStorage.setItem("albiz_user", JSON.stringify(currentUser));
-  }
-  closeModals();
-  document.getElementById("welcome-screen").style.display = "none";
-  document.getElementById("app-feed-screen").style.display = "block";
-  showToast(`✅ लॉगिन यशस्वी!`);
-  renderSavedPosts();
+  db.collection("posts").orderBy("createdAt", "desc").onSnapshot(snap => {
+    let pBox = document.getElementById("home-posts-feed");
+    if (snap.empty) {
+      pBox.innerHTML = `<div style="text-align:center; padding:30px; color:#64748b;">अजून कोणतीही पोस्ट नाही. '+ Create ➔ Post' वर दाबून पहिली पोस्ट करा!</div>`;
+      return;
+    }
+    pBox.innerHTML = snap.docs.map(doc => {
+      let p = doc.data();
+      let postId = doc.id;
+      return `
+        <div class="feed-post-card">
+          <div class="fp-top-row">
+            <img class="fp-avatar" src="${p.avatar}" onclick="openUserProfile('${p.uid}')">
+            <div style="flex:1;">
+              <div class="fp-name" onclick="openUserProfile('${p.uid}')">${p.author} <i class="fa-solid fa-circle-check" style="color:#2563eb; font-size:14px;"></i></div>
+              <div class="fp-cat-tag"><i class="fa-solid fa-location-dot"></i> ${p.location || 'Maharashtra'} &bull; ${p.category || 'Post'}</div>
+            </div>
+          </div>
+          <div class="fp-caption">${p.caption}</div>
+          ${p.img ? `<img class="fp-media-img" src="${p.img}" onclick="openImageLightbox('${p.img}', '${p.author}')">` : ""}
+          <div class="fp-actions-bar">
+            <div class="fp-act-btn" onclick="likeRealPost('${postId}')">
+              <i class="fa-solid fa-heart" style="color:#e11d48;"></i> <span>${p.likes || 0}</span>
+            </div>
+            <div class="fp-act-btn" onclick="commentOnRealPost('${postId}')">
+              <i class="fa-regular fa-comment"></i> <span>${p.commentsCount || 0}</span>
+            </div>
+            <div class="fp-act-btn" onclick="openUserProfile('${p.uid}')">
+              <i class="fa-solid fa-user"></i> View Profile
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  });
 }
 
-function loadNewPostImg(e) {
+async function likeRealPost(postId) {
+  await db.collection("posts").doc(postId).update({
+    likes: firebase.firestore.FieldValue.increment(1)
+  });
+}
+
+async function commentOnRealPost(postId) {
+  let txt = prompt("तुमची कमेंट लिहा:");
+  if (!txt) return;
+  await db.collection("posts").doc(postId).update({
+    commentsCount: firebase.firestore.FieldValue.increment(1)
+  });
+  showToast("💬 तुमची कमेंट जोडली गेली!");
+}
+
+// २. रिअल-टाईम ऑफर्स (Explore Tab)
+function listenToRealOffers() {
+  db.collection("offers").orderBy("createdAt", "desc").onSnapshot(snap => {
+    let box = document.getElementById("explore-offers-list");
+    if (snap.empty) {
+      box.innerHTML = `<p style="text-align:center; padding:20px; color:#64748b;">सध्या कोणतीही ऑफर नाही. '+ Create ➔ Offer' मधून नवीन ऑफर टाका!</p>`;
+      return;
+    }
+    box.innerHTML = snap.docs.map(doc => {
+      let o = doc.data();
+      return `
+        <div class="offer-banner-card">
+          <div class="offer-top-visual" style="background-image:url('${o.img}');">
+            <div class="offer-grad-mask"></div>
+            <div class="offer-txt-content">
+              <div class="offer-biz-title">${o.bizName}</div>
+              <div class="offer-tag-sub">Special Offer / सवलत</div>
+              <div class="offer-main-deal">${o.deal}</div>
+              <div class="offer-loc-valid">${o.location} &bull; ${o.validity}</div>
+            </div>
+          </div>
+          <div class="offer-btn-bar">
+            <button class="ob-btn-primary" onclick="openUserProfile('${o.uid}')">Visit Store</button>
+            <button class="ob-btn-outline" onclick="openGoogleMapLink('${o.location}')">Directions</button>
+            <button class="ob-btn-outline" onclick="window.location.href='tel:${o.phone}'">Call</button>
+          </div>
+        </div>
+      `;
+    }).join("");
+  });
+}
+
+// ३. रिअल-टाईम आजूबाजूची दुकाने (Nearby Stores)
+function listenToRealNearbyStores() {
+  db.collection("users").where("type", "==", "business").onSnapshot(snap => {
+    let box = document.getElementById("nearby-stores-list");
+    if (snap.empty) {
+      box.innerHTML = `<p style="text-align:center; padding:20px; color:#64748b;">अजून कोणतेही Business अकाउंट रजिस्टर झालेले नाही.</p>`;
+      return;
+    }
+    box.innerHTML = snap.docs.map(doc => {
+      let s = doc.data();
+      return `
+        <div class="nearby-store-card">
+          <div class="ns-img-box" onclick="openUserProfile('${s.uid}')">
+            <img src="${s.avatar}">
+            <span class="ns-dist-badge">Nearby</span>
+          </div>
+          <div class="ns-info-col">
+            <div class="ns-title" onclick="openUserProfile('${s.uid}')">${s.name}</div>
+            <div class="ns-rating-row">⭐ 4.8 &bull; ${s.location}</div>
+            <div class="ns-desc">${s.about || s.category}</div>
+            <div class="ns-btns-row">
+              <button class="ns-pill-btn" onclick="window.location.href='tel:${s.phone}'">📞 Call</button>
+              <button class="ns-pill-btn" onclick="openGoogleMapLink('${s.name} ${s.location}')">💠 Directions</button>
+              <button class="ns-pill-btn" onclick="startRealChat('${s.uid}', '${s.name}')">💬 Message</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+  });
+}
+
+// ============================================================================
+// 3. PUBLISH REAL POSTS, REELS, OFFERS & PRODUCTS TO FIRESTORE
+// ============================================================================
+function toggleCreatePopupMenu(e) {
+  e.stopPropagation();
+  let menu = document.getElementById("create-dropdown-menu");
+  menu.style.display = (menu.style.display === "block") ? "none" : "block";
+}
+
+function openCreateContentModal(mode) {
+  currentCreateMode = mode;
+  document.getElementById("create-dropdown-menu").style.display = "none";
+  document.getElementById("create-modal-title").innerText = `Create New ${mode}`;
+  document.getElementById("cr-sub-input").style.display = (mode === 'Offer' || mode === 'Product') ? "block" : "none";
+  document.getElementById("cr-price-input").style.display = (mode === 'Product') ? "block" : "none";
+  document.getElementById("create-content-modal").style.display = "flex";
+}
+function closeCreateContentModal() { document.getElementById("create-content-modal").style.display = "none"; }
+
+function handleFileSelect(e) {
   if (e.target.files && e.target.files[0]) {
     let reader = new FileReader();
-    reader.onload = function(evt) { uploadedImgURL = evt.target.result; };
+    reader.onload = function (evt) { uploadedDataURL = evt.target.result; };
     reader.readAsDataURL(e.target.files[0]);
   }
 }
 
-function publishPost() {
-  let text = document.getElementById("new-post-text").value;
-  let loc = document.getElementById("new-post-loc").value || currentUser.location;
-  if (!text && !uploadedImgURL) { showToast("⚠️ कृपया कॅप्शन लिहा किंवा फोटो निवडा!"); return; }
+async function publishCreatedContent() {
+  if (!currentUserData) return;
+  let title = document.getElementById("cr-title-input").value.trim();
+  let sub = document.getElementById("cr-sub-input").value.trim();
+  let price = document.getElementById("cr-price-input").value.trim();
+  if (!title && !uploadedDataURL) {
+    showToast("⚠️ कृपया माहिती किंवा फोटो निवडा!");
+    return;
+  }
 
-  let newPost = {
-    author: currentUser ? currentUser.name : "ALBIZNET User",
-    type: currentUser ? currentUser.type : "people",
-    owner: currentUser ? currentUser.owner : "",
-    products: currentUser ? currentUser.products : "",
-    text: text, location: loc, img: uploadedImgURL
-  };
+  let img = uploadedDataURL || "https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=700&q=80";
 
-  savedPosts.unshift(newPost);
-  localStorage.setItem("albiz_posts", JSON.stringify(savedPosts));
-  uploadedImgURL = "";
-  document.getElementById("new-post-text").value = "";
-  closeModals();
-  showToast("🚀 तुमची पोस्ट पब्लिश झाली!");
-  renderSavedPosts();
+  try {
+    if (currentCreateMode === 'Reel') {
+      await db.collection("reels").add({
+        uid: currentUserData.uid,
+        author: currentUserData.name,
+        img: img,
+        views: 1,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } else if (currentCreateMode === 'Offer') {
+      await db.collection("offers").add({
+        uid: currentUserData.uid,
+        bizName: currentUserData.name,
+        deal: title,
+        validity: sub || "Limited Time Offer",
+        location: currentUserData.location,
+        phone: currentUserData.phone || "",
+        img: img,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } else if (currentCreateMode === 'Product') {
+      await db.collection("products").add({
+        uid: currentUserData.uid,
+        title: title,
+        price: price || "₹999",
+        cat: sub || "Men",
+        img: img,
+        desc: `Quality product by ${currentUserData.name}`,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+    } else {
+      await db.collection("posts").add({
+        uid: currentUserData.uid,
+        author: currentUserData.name,
+        avatar: currentUserData.avatar,
+        location: currentUserData.location,
+        category: currentUserData.category || "Post",
+        caption: title,
+        img: uploadedDataURL,
+        likes: 0,
+        commentsCount: 0,
+        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+      });
+      await db.collection("users").doc(currentUserData.uid).update({
+        postsCount: firebase.firestore.FieldValue.increment(1)
+      });
+    }
+    document.getElementById("cr-title-input").value = "";
+    uploadedDataURL = "";
+    closeCreateContentModal();
+    showToast(`🚀 तुमची ${currentCreateMode} सर्वरवर लाईव्ह पब्लिश झाली!`);
+  } catch (err) {
+    showToast("❌ Error: " + err.message);
+  }
 }
 
-function renderSavedPosts() {
-  let feed = document.getElementById("posts-feed");
-  document.querySelectorAll(".user-added-post").forEach(e => e.remove());
-  let html = "";
-  savedPosts.forEach((p) => {
-    let shortLoc = p.location.split(",")[0];
-    let badge = p.type === 'business' ? `<span class="biz-badge">🏪 Business (${p.owner})</span>` : `Public`;
-    let prodBar = (p.type === 'business' && p.products) ? `<div><span class="prod-pill">🛍️ ${p.products}</span></div>` : "";
-    let media = p.img ? `<div class="post-media-box"><img src="${p.img}"><div class="location-overlay"><i class="fa-solid fa-location-dot"></i> ${p.location}</div></div>` : "";
+// ============================================================================
+// 4. REAL FOLLOW SYSTEM & REAL PROFILE VIEW (PEOPLE & BUSINESS)
+// ============================================================================
+async function openUserProfile(targetUid) {
+  const doc = await db.collection("users").doc(targetUid).get();
+  if (!doc.exists) return;
+  activeProfileUser = { uid: doc.id, ...doc.data() };
 
-    html += `
-      <div class="post-card user-added-post">
-        <div class="author-box">
-          <img class="author-img" src="https://i.pravatar.cc/150?img=11">
-          <div>
-            <div class="author-name">${p.author} <i class="fa-solid fa-certificate blue-tick"></i></div>
-            <div class="post-meta"><i class="fa-solid fa-location-dot"></i> ${shortLoc} &bull; ${badge}</div>
-          </div>
-        </div>
-        <div class="post-caption">${p.text}</div>
-        ${prodBar}
-        ${media}
-        <div class="post-buttons">
-          <button class="btn-vibe" onclick="giveVibe(this)"><i class="fa-solid fa-fire"></i> Vibe</button>
-          <button class="btn-secondary-act" onclick="toggleReplyBox(this)"><i class="fa-regular fa-comment-dots"></i> Reply</button>
-          <button class="btn-secondary-act" onclick="remixPost('${p.author}')"><i class="fa-solid fa-wand-magic-sparkles"></i> Remix</button>
-        </div>
-        <div class="reply-box">
-          <div class="reply-input-row">
-            <input type="text" placeholder="कमेंट लिहा...">
-            <button onclick="addReply(this)">Send</button>
-          </div>
-          <div class="replies-list"></div>
-        </div>
-      </div>
-    `;
+  const views = ['home', 'explore', 'nearby', 'messages', 'profile'];
+  views.forEach(v => {
+    document.getElementById("view-" + v).style.display = (v === 'profile') ? "block" : "none";
+    document.getElementById("bnav-" + v).classList.toggle("active", v === 'profile');
   });
-  feed.insertAdjacentHTML('afterbegin', html);
+  document.getElementById("main-top-header").style.display = "none";
+
+  renderProfileData(activeProfileUser);
 }
 
-function giveVibe(btn) { btn.innerHTML = `<i class="fa-solid fa-fire"></i> Vibed! 🔥`; }
-function toggleReplyBox(el) {
-  let box = el.closest(".post-card").querySelector(".reply-box");
-  box.style.display = (box.style.display === "block") ? "none" : "block";
-}
-function addReply(btn) {
-  let input = btn.parentElement.querySelector("input");
-  let list = btn.parentElement.nextElementSibling;
-  if (!input.value) return;
-  let uName = currentUser ? currentUser.name : "You";
-  list.innerHTML += `<div class="reply-item"><b>${uName}:</b> ${input.value}</div>`;
-  input.value = "";
-}
-function remixPost(author) {
-  document.getElementById("new-post-text").value = `🔄 Remixed from @${author}: `;
-  openCreateModal();
+function loadProfileView() {
+  if (!currentUserData) return;
+  openUserProfile(currentUserData.uid);
 }
 
-function switchFeedTab(tab) {
-  document.getElementById("tab-foryou").classList.toggle("active", tab === 'foryou');
-  document.getElementById("tab-nearby").classList.toggle("active", tab === 'nearby');
-  document.getElementById("tab-creators").classList.toggle("active", tab === 'creators');
+async function renderProfileData(u) {
+  if (u.type === 'business') {
+    document.getElementById("people-profile-box").style.display = "none";
+    document.getElementById("business-profile-box").style.display = "block";
+    document.getElementById("b-prof-name").innerText = u.name;
+    document.getElementById("b-prof-cat").innerText = u.category || "Business Store";
+    document.getElementById("b-prof-about").innerText = u.about || "";
+    document.getElementById("b-prof-loc").innerText = u.location || "";
+    document.getElementById("b-prof-phone").innerText = u.phone || "";
+    document.getElementById("b-stat-followers").innerText = u.followersCount || 0;
+    document.getElementById("b-stat-following").innerText = u.followingCount || 0;
 
-  if (tab === 'nearby') {
-    let storedBiz = JSON.parse(localStorage.getItem("albiz_businesses")) || allBusinesses;
-    let bizHTML = `<div class="post-card user-added-post" style="background:linear-gradient(135deg, #f0fdf4, #e0f2fe); border:1px solid #38bdf8;">
-      <h3 style="font-size:15px; color:#0f172a; margin-bottom:8px;"><i class="fa-solid fa-store" style="color:#0284c7;"></i> तुमच्या आजूबाजूची दुकाने (Nearby Stores):</h3>`;
-    
-    storedBiz.forEach(b => {
-      let mapUrl = `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(b.name + " " + b.location)}`;
-      bizHTML += `
-        <div style="background:white; padding:10px; border-radius:12px; margin-bottom:8px; border:1px solid #e2e8f0;">
-          <div style="font-weight:700; font-size:14px; color:#0f172a;">🏪 ${b.name}</div>
-          <div style="font-size:12px; color:#475569;">👨‍💼 मालक: ${b.owner} | 🛍️ ${b.products}</div>
-          <div style="font-size:11.5px; color:#2563eb; margin-top:3px;"><i class="fa-solid fa-location-dot"></i> ${b.location}</div>
-          <div style="display:flex; justify-content:space-between; align-items:center; margin-top:6px;">
-            <span style="font-size:11px; color:#16a34a; font-weight:600;"><i class="fa-solid fa-phone"></i> ${b.contact}</span>
-            <a href="${mapUrl}" target="_blank" style="background:#0284c7; color:white; text-decoration:none; padding:4px 10px; border-radius:15px; font-size:10.5px; font-weight:600;">🗺️ Google Map वर पहा</a>
-          </div>
-        </div>`;
-    });
-    bizHTML += `</div>`;
-    
-    let feed = document.getElementById("posts-feed");
-    document.querySelectorAll(".user-added-post").forEach(e => e.remove());
-    feed.insertAdjacentHTML('afterbegin', bizHTML);
-    showToast("📍 तुमच्या परिसरातील दुकाने लोड झाली!");
-  } else if (tab === 'foryou') {
-    renderSavedPosts();
-  }
-}
-
-function showMyProfile() {
-  if (!currentUser) return;
-  document.getElementById("prof-name").innerText = currentUser.name;
-  document.getElementById("prof-type").innerText = currentUser.type === 'business' ? "🏪 BUSINESS ACCOUNT" : "👤 PERSONAL ACCOUNT";
-  document.getElementById("prof-loc").innerHTML = `<i class="fa-solid fa-location-dot"></i> ${currentUser.location}`;
-  let extraBox = document.getElementById("prof-extra");
-  if (currentUser.type === 'business') {
-    extraBox.innerHTML = `<p><b>👨‍💼 मालक:</b> ${currentUser.owner}</p><p><b>🛍️ प्रॉडक्ट्स:</b> ${currentUser.products}</p><p><b>📞 संपर्क:</b> ${currentUser.contact}</p>`;
+    // त्या दुकानाचे खरे प्रॉडक्ट्स लोड करणे
+    const prodSnap = await db.collection("products").where("uid", "==", u.uid).get();
+    let miniBox = document.getElementById("biz-mini-products");
+    miniBox.innerHTML = prodSnap.docs.map(d => {
+      let p = d.data();
+      return `<div class="mini-prod-box"><img src="${p.img}"><p>${p.title}</p><button>${p.price}</button></div>`;
+    }).join("");
   } else {
-    extraBox.innerHTML = `<p><b>🎂 जन्मतारीख:</b> ${currentUser.dob}</p><p><b>📞 संपर्क:</b> ${currentUser.contact}</p>`;
+    document.getElementById("business-profile-box").style.display = "none";
+    document.getElementById("people-profile-box").style.display = "block";
+    document.getElementById("p-prof-name").innerText = u.name;
+    document.getElementById("p-prof-loc").innerText = u.location || "";
+    document.getElementById("p-prof-about").innerText = u.about || "";
+    document.getElementById("p-stat-followers").innerText = u.followersCount || 0;
+    document.getElementById("p-stat-following").innerText = u.followingCount || 0;
+    document.getElementById("p-stat-posts").innerText = u.postsCount || 0;
+
+    // युजरच्या खऱ्या पोस्ट्स गॅलरीत दाखवणे
+    const postSnap = await db.collection("posts").where("uid", "==", u.uid).get();
+    let grid = document.getElementById("people-media-grid");
+    grid.innerHTML = postSnap.docs
+      .filter(d => d.data().img)
+      .map(d => `<img src="${d.data().img}" onclick="openImageLightbox('${d.data().img}', '${u.name}')">`)
+      .join("");
   }
-  document.getElementById("profile-modal").style.display = "flex";
 }
 
-function logoutUser() {
-  localStorage.removeItem("albiz_user");
-  currentUser = null;
-  closeModals();
-  document.getElementById("app-feed-screen").style.display = "none";
-  document.getElementById("welcome-screen").style.display = "flex";
+// रिअल Follow / Unfollow (Firebase मध्ये दोन्ही युजर्सचे आकडे अपडेट होतात)
+async function toggleFollowPeopleProfile() {
+  await executeRealFollow();
+}
+async function toggleFollowActiveBiz() {
+  await executeRealFollow();
+}
+
+async function executeRealFollow() {
+  if (!currentUserData || !activeProfileUser) return;
+  const myUid = currentUserData.uid;
+  const targetUid = activeProfileUser.uid;
+
+  const followDocRef = db.collection("users").doc(targetUid).collection("followers").doc(myUid);
+  const snap = await followDocRef.get();
+
+  if (!snap.exists) {
+    await followDocRef.set({ uid: myUid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    await db.collection("users").doc(targetUid).update({ followersCount: firebase.firestore.FieldValue.increment(1) });
+    await db.collection("users").doc(myUid).update({ followingCount: firebase.firestore.FieldValue.increment(1) });
+    showToast(`✅ तुम्ही ${activeProfileUser.name} ला Follow केले!`);
+  } else {
+    await followDocRef.delete();
+    await db.collection("users").doc(targetUid).update({ followersCount: firebase.firestore.FieldValue.increment(-1) });
+    await db.collection("users").doc(myUid).update({ followingCount: firebase.firestore.FieldValue.increment(-1) });
+    showToast(`Unfollowed ${activeProfileUser.name}`);
+  }
+  openUserProfile(targetUid);
+}
+
+// ============================================================================
+// 5. REAL-TIME LIVE CHAT / MESSAGING
+// ============================================================================
+async function startRealChat(peerUid, peerName) {
+  if (!currentUserData) return;
+  let txt = prompt(`${peerName} ला पाठवायचा मेसेज लिहा:`);
+  if (!txt) return;
+
+  await db.collection("chats").add({
+    participants: [currentUserData.uid, peerUid],
+    senderName: currentUserData.name,
+    receiverName: peerName,
+    lastMessage: txt,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  showToast("📨 मेसेज पाठवला!");
+  switchBottomNav('messages');
+}
+
+function listenToRealMessages() {
+  if (!currentUserData) return;
+  db.collection("chats")
+    .where("participants", "array-contains", currentUserData.uid)
+    .onSnapshot(snap => {
+      let box = document.getElementById("messages-chat-list");
+      if (snap.empty) {
+        box.innerHTML = `<p style="text-align:center; padding:20px; color:#64748b;">तुमच्या इनबॉक्समध्ये अजून कोणतेही मेसेज नाहीत.</p>`;
+        return;
+      }
+      box.innerHTML = snap.docs.map(doc => {
+        let m = doc.data();
+        let otherName = (m.senderName === currentUserData.name) ? m.receiverName : m.senderName;
+        return `
+          <div class="chat-item-row" onclick="replyToChat('${doc.id}', '${otherName}')">
+            <div class="chat-unread-dot"></div>
+            <div class="chat-av-wrap">
+              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80">
+              <span class="online-green-dot"></span>
+            </div>
+            <div>
+              <div class="chat-name">${otherName}</div>
+              <div class="chat-last-msg">${m.lastMessage}</div>
+            </div>
+          </div>
+        `;
+      }).join("");
+    });
+}
+
+async function replyToChat(chatId, otherName) {
+  let reply = prompt(`${otherName} ला रिप्लाय द्या:`);
+  if (!reply) return;
+  await db.collection("chats").doc(chatId).update({
+    lastMessage: `${currentUserData.name}: ${reply}`,
+    createdAt: firebase.firestore.FieldValue.serverTimestamp()
+  });
+  showToast("✅ रिप्लाय पाठवला!");
+}
+
+// ============================================================================
+// 6. REAL SETTINGS EDIT (NAME, BIO, LOCATION, ROLE SWITCH & LOGOUT)
+// ============================================================================
+async function editUserField(fieldKey, labelName) {
+  if (!currentUserData) return;
+  let newVal = prompt(`नवीन ${labelName} टाका:`, currentUserData[fieldKey] || "");
+  if (!newVal) return;
+
+  await db.collection("users").doc(currentUserData.uid).update({ [fieldKey]: newVal });
+  currentUserData[fieldKey] = newVal;
+  showToast(`✅ तुमचे ${labelName} सर्वरवर सेव्ह झाले!`);
+  openUserProfile(currentUserData.uid);
+}
+
+async function switchUserRoleTo(newType) {
+  if (!currentUserData) return;
+  await db.collection("users").doc(currentUserData.uid).update({ type: newType });
+  currentUserData.type = newType;
+  closeSettingsScreen();
+  openUserProfile(currentUserData.uid);
+  showToast(`🔄 तुमचे अकाउंट ${newType.toUpperCase()} मध्ये बदलले!`);
+}
+
+function openSettingsScreen() {
+  if (!currentUserData) return;
+  document.getElementById("set-banner-name").innerText = currentUserData.name;
+  document.getElementById("set-banner-sub").innerText = currentUserData.handle || "@user";
+
+  let grid = document.getElementById("settings-grid-content");
+  grid.innerHTML = `
+    <div class="set-card">
+      <h5><i class="fa-solid fa-user-pen"></i> Edit Real Profile</h5>
+      <div class="set-row-item" onclick="editUserField('name', 'नाव (Name)')"><span>Change Name</span><span>&gt;</span></div>
+      <div class="set-row-item" onclick="editUserField('about', 'माहिती (About Bio)')"><span>Edit Bio / About</span><span>&gt;</span></div>
+      <div class="set-row-item" onclick="editUserField('location', 'लोकेशन (Location)')"><span>Change Location</span><span>&gt;</span></div>
+      <div class="set-row-item" onclick="editUserField('phone', 'मोबाईल नंबर')"><span>Update Phone Number</span><span>&gt;</span></div>
+    </div>
+    <div class="set-card">
+      <h5><i class="fa-solid fa-sliders"></i> Account Role</h5>
+      <div class="set-row-item" onclick="switchUserRoleTo('business')"><span>Switch to Business</span><span>&gt;</span></div>
+      <div class="set-row-item" onclick="switchUserRoleTo('people')"><span>Switch to Personal</span><span>&gt;</span></div>
+    </div>
+  `;
+  document.getElementById("settings-modal").style.display = "flex";
+}
+
+function closeSettingsScreen() { document.getElementById("settings-modal").style.display = "none"; }
+
+async function logoutCurrentUser() {
+  await auth.signOut();
+  currentUserData = null;
+  closeSettingsScreen();
   showToast("👋 यशस्वीरित्या Log Out झाले!");
 }
+
+function switchBottomNav(tab) {
+  const views = ['home', 'explore', 'nearby', 'messages', 'profile'];
+  views.forEach(v => {
+    document.getElementById("view-" + v).style.display = (v === tab) ? "block" : "none";
+    document.getElementById("bnav-" + v).classList.toggle("active", v === tab);
+  });
+  document.getElementById("main-top-header").style.display = (tab === 'home') ? "flex" : "none";
+  if (tab === 'profile') loadProfileView();
+  window.scrollTo(0, 0);
+}
+
+function openImageLightbox(imgUrl, captionText) {
+  if (!imgUrl) return;
+  document.getElementById("lightbox-img").src = imgUrl;
+  document.getElementById("lightbox-caption").innerText = captionText || "";
+  document.getElementById("gallery-lightbox-modal").style.display = "flex";
+}
+function closeImageLightbox() { document.getElementById("gallery-lightbox-modal").style.display = "none"; }
+function openGoogleMapLink(query) { window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`, "_blank"); }
