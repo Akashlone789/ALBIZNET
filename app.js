@@ -1,18 +1,8 @@
 // ============================================================================
-// ALBIZNET - 100% REAL-TIME FIREBASE BACKEND (NO DUMMY DATA)
+// ALBIZNET - 100% REAL-TIME FIREBASE BACKEND (SECURE VERCEL ENV LOADER)
 // ============================================================================
 
-// १. येथे तुमचा स्वतःचा Firebase Config कोड पेस्ट करा:
-const firebaseConfig = {
-  apiKey: "YOUR_API_KEY_HERE",
-  authDomain: "your-project-id.firebaseapp.com",
-  projectId: "your-project-id",
-  storageBucket: "your-project-id.appspot.com",
-  messagingSenderId: "1234567890",
-  appId: "1:1234567890:web:abcdef123456"
-};
-
-// Firebase SDK ऑटोमॅटिक लोड करणे
+let firebaseConfig = null;
 let db, auth;
 let currentUserData = null;
 let activeProfileUser = null;
@@ -21,6 +11,7 @@ let authAccountType = 'people';
 let currentCreateMode = 'Post';
 let uploadedDataURL = "";
 
+// १. Firebase SDK लोड करणे आणि Vercel मधून सुरक्षित Key मागवणे
 (function loadFirebaseScripts() {
   const scripts = [
     "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js",
@@ -33,18 +24,33 @@ let uploadedDataURL = "";
     s.src = src;
     s.onload = () => {
       loaded++;
-      if (loaded === scripts.length) initRealFirebaseApp();
+      if (loaded === scripts.length) {
+        fetchSecureConfigAndStart();
+      }
     };
     document.head.appendChild(s);
   });
 })();
 
-function initRealFirebaseApp() {
-  if (firebaseConfig.apiKey === "YOUR_API_KEY_HERE") {
-    showToast("⚠️ कृपया app.js मध्ये तुमची Firebase apiKey टाका!");
-    return;
+async function fetchSecureConfigAndStart() {
+  try {
+    const response = await fetch('/api/config');
+    firebaseConfig = await response.json();
+
+    if (!firebaseConfig || !firebaseConfig.apiKey) {
+      showToast("⚠️ Vercel मधून FIREBASE_CONFIG मिळाली नाही! कृपया Settings तपासा.");
+      return;
+    }
+    initRealFirebaseApp();
+  } catch (err) {
+    showToast("⚠️ Config Load Error: " + err.message);
   }
-  firebase.initializeApp(firebaseConfig);
+}
+
+function initRealFirebaseApp() {
+  if (!firebase.apps.length) {
+    firebase.initializeApp(firebaseConfig);
+  }
   auth = firebase.auth();
   db = firebase.firestore();
 
@@ -93,6 +99,8 @@ function switchAuthAccount(type) {
   document.getElementById("auth-people-fields").style.display = isP ? "block" : "none";
   document.getElementById("auth-business-fields").style.display = isP ? "none" : "block";
   document.getElementById("auth-biz-about-wrap").style.display = isP ? "none" : "block";
+  document.getElementById("auth-heading").innerHTML = isP ? `Create <span>People</span> Account` : `Create <span>Business</span> Account`;
+  document.getElementById("main-submit-txt").innerText = isP ? "Create Account" : "Create Business Account";
 }
 
 function switchVerifyTab(method) {
@@ -103,6 +111,29 @@ function switchVerifyTab(method) {
   document.getElementById("ver-email-box").style.display = isMob ? "none" : "flex";
 }
 
+function togglePassVis(inputId, iconEl) {
+  let inp = document.getElementById(inputId);
+  if (inp.type === "password") {
+    inp.type = "text";
+    iconEl.className = "fa-regular fa-eye pass-eye";
+  } else {
+    inp.type = "password";
+    iconEl.className = "fa-regular fa-eye-slash pass-eye";
+  }
+}
+
+function triggerAuthOTP() {
+  let code = Math.floor(1000 + Math.random() * 9000);
+  document.getElementById("reg-otp").value = code;
+  showToast(`🔐 तुमचा Verification OTP आहे: <b>${code}</b>`);
+}
+
+function sendQuickLoginOTP() {
+  let code = Math.floor(1000 + Math.random() * 9000);
+  document.getElementById("login-pass-input").value = code;
+  showToast(`📱 तुमचा Quick OTP आहे: <b>${code}</b>`);
+}
+
 function detectUserGPS(inputId) {
   let inp = document.getElementById(inputId);
   inp.value = "🛰️ GPS शोधत आहे...";
@@ -111,25 +142,30 @@ function detectUserGPS(inputId) {
       try {
         let res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
         let data = await res.json();
-        let city = data.address.city || data.address.town || data.address.village || "Nanded";
+        let city = data.address.city || data.address.town || data.address.village || "Ardhapur";
         let state = data.address.state || "Maharashtra";
         inp.value = `${city}, ${state}`;
         showToast("📍 तुमचे खरे GPS लोकेशन जोडले!");
       } catch (e) {
         inp.value = `${pos.coords.latitude.toFixed(3)}, ${pos.coords.longitude.toFixed(3)}`;
       }
+    }, () => {
+      inp.value = "Ardhapur, Maharashtra";
     });
   }
 }
 
 // नवीन अकाउंट थेट सर्वरवर तयार करणे
 async function submitRegistration() {
+  if (!auth) {
+    showToast("⏳ Firebase कनेक्ट होत आहे, कृपया २ सेकंद थांबा...");
+    return;
+  }
   let email = document.getElementById("reg-email").value.trim();
   let mob = document.getElementById("reg-mobile").value.trim();
   let pass = document.getElementById("reg-pass").value.trim();
-  let loc = document.getElementById("reg-location").value.trim() || "Maharashtra";
+  let loc = document.getElementById("reg-location").value.trim() || "Ardhapur, Maharashtra";
 
-  // जर युजरने फक्त मोबाईल टाकला असेल तर Firebase Auth साठी ऑटो-ईमेल तयार करणे
   let authEmail = email || (mob ? `${mob}@albiznet.com` : "");
   if (!authEmail || pass.length < 6) {
     showToast("⚠️ कृपया मोबाईल/Gmail आणि किमान ६ अंकी पासवर्ड टाका!");
@@ -153,7 +189,7 @@ async function submitRegistration() {
       category: authAccountType === 'business' ? (document.getElementById("reg-b-cat").value.trim() || "Shops") : "Personal Account",
       about: authAccountType === 'business'
         ? (document.getElementById("reg-b-about").value.trim() || "Welcome to our store!")
-        : `Hi! I'm ${name}, connected on ALBIZNET.`,
+        : `Hi! I'm ${name || 'a creator'}, connected on ALBIZNET.`,
       location: loc,
       phone: mob,
       email: email,
@@ -175,6 +211,10 @@ async function submitRegistration() {
 
 // रिअल लॉगिन
 async function handleLoginSubmit() {
+  if (!auth) {
+    showToast("⏳ Firebase कनेक्ट होत आहे, कृपया थोडा वेळ थांबा...");
+    return;
+  }
   let idVal = document.getElementById("login-id-input").value.trim();
   let pass = document.getElementById("login-pass-input").value.trim();
   let authEmail = idVal.includes("@") ? idVal : `${idVal}@albiznet.com`;
@@ -190,6 +230,10 @@ async function handleLoginSubmit() {
 
 // खरा Google Sign-In Popup
 async function openGoogleChooser() {
+  if (!auth) {
+    showToast("⚠️ अजून Firebase सुरू झालेले नाही. कृपया api/config.js आणि Vercel Environment Variable तपासा!");
+    return;
+  }
   try {
     const provider = new firebase.auth.GoogleAuthProvider();
     const res = await auth.signInWithPopup(provider);
@@ -205,7 +249,7 @@ async function openGoogleChooser() {
         handle: "@" + (u.email ? u.email.split("@")[0] : "user"),
         category: authAccountType === 'business' ? "Business Store" : "Personal Account",
         about: `Hi! I'm ${u.displayName || 'here'} on ALBIZNET.`,
-        location: "Maharashtra, India",
+        location: "Ardhapur, Maharashtra",
         phone: u.phoneNumber || "",
         email: u.email || "",
         avatar: u.photoURL || "https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80",
@@ -219,6 +263,11 @@ async function openGoogleChooser() {
   } catch (err) {
     showToast("❌ Google Sign-In Error: " + err.message);
   }
+}
+
+function closeGoogleChooser() {
+  let m = document.getElementById("google-chooser-modal");
+  if (m) m.style.display = "none";
 }
 
 // ============================================================================
@@ -236,7 +285,6 @@ function launchMainApp() {
   switchBottomNav('home');
 }
 
-// १. रिअल-टाईम पोस्ट्स आणि रील्स (कोणीही पोस्ट टाकताच सर्वांना दिसेल)
 function listenToRealPostsAndReels() {
   db.collection("reels").orderBy("createdAt", "desc").onSnapshot(snap => {
     let rBox = document.getElementById("reels-container");
@@ -310,7 +358,6 @@ async function commentOnRealPost(postId) {
   showToast("💬 तुमची कमेंट जोडली गेली!");
 }
 
-// २. रिअल-टाईम ऑफर्स (Explore Tab)
 function listenToRealOffers() {
   db.collection("offers").orderBy("createdAt", "desc").onSnapshot(snap => {
     let box = document.getElementById("explore-offers-list");
@@ -342,7 +389,6 @@ function listenToRealOffers() {
   });
 }
 
-// ३. रिअल-टाईम आजूबाजूची दुकाने (Nearby Stores)
 function listenToRealNearbyStores() {
   db.collection("users").where("type", "==", "business").onSnapshot(snap => {
     let box = document.getElementById("nearby-stores-list");
@@ -375,7 +421,7 @@ function listenToRealNearbyStores() {
 }
 
 // ============================================================================
-// 3. PUBLISH REAL POSTS, REELS, OFFERS & PRODUCTS TO FIRESTORE
+// 3. PUBLISH REAL POSTS, REELS, OFFERS & PRODUCTS
 // ============================================================================
 function toggleCreatePopupMenu(e) {
   e.stopPropagation();
@@ -504,12 +550,11 @@ async function renderProfileData(u) {
     document.getElementById("b-stat-followers").innerText = u.followersCount || 0;
     document.getElementById("b-stat-following").innerText = u.followingCount || 0;
 
-    // त्या दुकानाचे खरे प्रॉडक्ट्स लोड करणे
     const prodSnap = await db.collection("products").where("uid", "==", u.uid).get();
     let miniBox = document.getElementById("biz-mini-products");
     miniBox.innerHTML = prodSnap.docs.map(d => {
       let p = d.data();
-      return `<div class="mini-prod-box"><img src="${p.img}"><p>${p.title}</p><button>${p.price}</button></div>`;
+      return `<div class="mini-prod-box"><img src="${p.img}" onclick="openImageLightbox('${p.img}', '${p.title}')"><p>${p.title}</p><button>${p.price}</button></div>`;
     }).join("");
   } else {
     document.getElementById("business-profile-box").style.display = "none";
@@ -521,7 +566,6 @@ async function renderProfileData(u) {
     document.getElementById("p-stat-following").innerText = u.followingCount || 0;
     document.getElementById("p-stat-posts").innerText = u.postsCount || 0;
 
-    // युजरच्या खऱ्या पोस्ट्स गॅलरीत दाखवणे
     const postSnap = await db.collection("posts").where("uid", "==", u.uid).get();
     let grid = document.getElementById("people-media-grid");
     grid.innerHTML = postSnap.docs
@@ -531,13 +575,8 @@ async function renderProfileData(u) {
   }
 }
 
-// रिअल Follow / Unfollow (Firebase मध्ये दोन्ही युजर्सचे आकडे अपडेट होतात)
-async function toggleFollowPeopleProfile() {
-  await executeRealFollow();
-}
-async function toggleFollowActiveBiz() {
-  await executeRealFollow();
-}
+async function toggleFollowPeopleProfile() { await executeRealFollow(); }
+async function toggleFollowActiveBiz() { await executeRealFollow(); }
 
 async function executeRealFollow() {
   if (!currentUserData || !activeProfileUser) return;
@@ -669,7 +708,7 @@ function openSettingsScreen() {
 function closeSettingsScreen() { document.getElementById("settings-modal").style.display = "none"; }
 
 async function logoutCurrentUser() {
-  await auth.signOut();
+  if (auth) await auth.signOut();
   currentUserData = null;
   closeSettingsScreen();
   showToast("👋 यशस्वीरित्या Log Out झाले!");
