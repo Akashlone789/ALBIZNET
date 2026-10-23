@@ -1,42 +1,28 @@
 export default function handler(req, res) {
   try {
-    // Vercel में आपने जिस नाम से भी Key सेव की हो, यह उसे ढूंढ लेगा
-    const raw = process.env.FIREBASE_CONFIG || process.env.VITE_FIREBASE_CONFIG || "";
+    const env = process.env;
 
-    if (!raw) {
-      // अगर आपने अलग-अलग वेरिएबल्स बनाए हैं, तो उन्हें भी सपोर्ट करेगा
-      if (process.env.FIREBASE_API_KEY || process.env.apiKey) {
-        return res.status(200).json({
-          apiKey: process.env.FIREBASE_API_KEY || process.env.apiKey,
-          authDomain: process.env.FIREBASE_AUTH_DOMAIN || process.env.authDomain,
-          projectId: process.env.FIREBASE_PROJECT_ID || process.env.projectId,
-          storageBucket: process.env.FIREBASE_STORAGE_BUCKET || process.env.storageBucket,
-          messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || process.env.messagingSenderId,
-          appId: process.env.FIREBASE_APP_ID || process.env.appId
-        });
+    // Vercel मधील तुमच्या ६ व्हेरिएबल्सना आपोआप शोधणारे स्मार्ट फंक्शन
+    const findEnv = (...keywords) => {
+      for (const k of Object.keys(env)) {
+        const up = k.toUpperCase();
+        if (keywords.every(w => up.includes(w))) {
+          return env[k];
+        }
       }
-      return res.status(200).json({ error: "FIREBASE_CONFIG is empty in Vercel" });
-    }
-
-    // अगर सीधा Firebase से कॉपी किया हुआ JavaScript ऑब्जेक्ट पेस्ट किया गया है, तो उसमें से वैल्यू निकालना
-    const extract = (key) => {
-      const match = raw.match(new RegExp(key + '\\s*:\\s*["\']([^"\']+)["\']'));
-      return match ? match[1] : undefined;
+      return "";
     };
 
-    if (extract('apiKey')) {
-      return res.status(200).json({
-        apiKey: extract('apiKey'),
-        authDomain: extract('authDomain'),
-        projectId: extract('projectId'),
-        storageBucket: extract('storageBucket'),
-        messagingSenderId: extract('messagingSenderId'),
-        appId: extract('appId')
-      });
-    }
+    const config = {
+      apiKey: env.FIREBASE_API_KEY || env.VITE_FIREBASE_API_KEY || findEnv("API", "KEY") || findEnv("FIREBASE", "KEY"),
+      authDomain: env.VITE_FIREBASE_AUTH_DOMAIN || env.FIREBASE_AUTH_DOMAIN || findEnv("AUTH", "DOMAIN"),
+      projectId: env.VITE_FIREBASE_PROJECT_ID || env.FIREBASE_PROJECT_ID || findEnv("PROJECT", "ID"),
+      storageBucket: env.VITE_FIREBASE_STORAGE_BUCKET || env.FIREBASE_STORAGE_BUCKET || findEnv("STORAGE", "BUCKET") || findEnv("BUCKET"),
+      messagingSenderId: env.VITE_FIREBASE_MESSAGING_SENDER_ID || env.FIREBASE_MESSAGING_SENDER_ID || findEnv("SENDER", "ID"),
+      appId: env.VITE_FIREBASE_APP_ID || env.FIREBASE_APP_ID || findEnv("APP", "ID")
+    };
 
-    // अगर शुद्ध JSON फॉर्मेट में है
-    return res.status(200).json(JSON.parse(raw));
+    return res.status(200).json(config);
   } catch (e) {
     return res.status(200).json({ error: e.message });
   }
