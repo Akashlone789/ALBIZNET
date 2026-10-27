@@ -1,7 +1,7 @@
 // =========================================================
-// ALBIZNET - COMPLETE PRO ENGINE v3.0 (app.js)
-// Real Send Btn & Chat Delete | Real Camera, Gallery & Voice Recorder |
-// Vertical Scrollable Media & Reels Feed | Full IG Action Sheet (Archive, Hide, Pin, Edit, Delete)
+// ALBIZNET - ULTIMATE REAL-TIME ENGINE v4.0 (app.js)
+// Strict Per-User Chat & Notifications | Outside Tap Closes Create Menu |
+// Exact Reel Click Match | Separate Public Reel Menu (Auto-Scroll) vs Profile Menu
 // =========================================================
 
 let auth = null;
@@ -21,7 +21,7 @@ let activeBizTab = 'Products';
 let activeMsgTab = 'Inbox';
 let activeCatalogFilter = 'All';
 
-// सक्रिय चॅट, कमेंट आणि व्हॉइस रेकॉर्डर स्टेट्स
+// चॅट, कमेंट आणि व्हॉइस रेकॉर्डर स्टेट्स
 let activeChatDocId = null;
 let activeChatPeerName = '';
 let activeChatPeerAvatar = '';
@@ -29,8 +29,9 @@ let activeChatPeerUid = '';
 let activeCommentPostId = null;
 let activeCommentCollection = 'posts';
 
-// IG Action Menu Target State
-let activeMenuTarget = { id: null, col: 'posts' };
+// IG Action Menu Target & Context ('public_reel' vs 'profile_owner')
+let activeMenuTarget = { id: null, col: 'posts', context: 'profile_owner' };
+let autoScrollReelsEnabled = false;
 
 // Real Voice Recording State
 let mediaRecorder = null;
@@ -44,12 +45,13 @@ let cacheStories = [];
 let cacheNotes = [];
 let cacheOffers = [];
 let cacheProducts = [];
+let cacheAllUsers = [];
 let cacheBusinesses = [];
 let cacheChats = [];
 let cacheNotifications = [];
 
 // =========================================================
-// 0. FIREBASE SDK LOADER & PRO UI INJECTOR
+// 0. FIREBASE SDK LOADER & GLOBAL OUTSIDE-CLICK HANDLER
 // =========================================================
 function loadScript(src) {
   return new Promise((resolve, reject) => {
@@ -67,6 +69,7 @@ async function initRealFirebaseApp() {
     injectProModalsIntoDOM();
     setupVideoFileInput();
     upgradeBusinessProfileTabs();
+    setupGlobalOutsideClickForCreateMenu();
 
     if (typeof firebase === 'undefined') {
       await loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
@@ -95,7 +98,6 @@ async function initRealFirebaseApp() {
 
     auth = firebase.auth();
     db = firebase.firestore();
-    db.enablePersistence({ synchronizeTabs: true }).catch(() => {});
 
     setupNotificationBell();
 
@@ -106,17 +108,18 @@ async function initRealFirebaseApp() {
         if (snap.exists) {
           currentUserData = { uid: user.uid, ...snap.data() };
         } else {
+          let fallbackName = user.displayName || (user.email ? user.email.split('@')[0] : 'ALBIZNET User');
           currentUserData = {
             uid: user.uid,
             type: authAccountType || 'people',
-            name: user.displayName || (user.email ? user.email.split('@')[0] : 'ALBIZNET User'),
-            handle: '@' + (user.email ? user.email.split('@')[0] : 'user').toLowerCase().replace(/\s+/g, ''),
+            name: fallbackName,
+            handle: '@' + fallbackName.toLowerCase().replace(/\s+/g, ''),
             category: authAccountType === 'business' ? 'Shops' : 'Personal Account',
-            about: `Hi! I'm on ALBIZNET.`,
+            about: `Hi! I'm ${fallbackName} on ALBIZNET.`,
             location: 'Ardhapur, Maharashtra',
             phone: user.phoneNumber || '',
             email: user.email || '',
-            avatar: user.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+            avatar: user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(fallbackName)}&background=4f46e5&color=fff&bold=true`,
             followersCount: 0,
             followingCount: 0,
             postsCount: 0,
@@ -138,6 +141,19 @@ async function initRealFirebaseApp() {
 
 document.addEventListener('DOMContentLoaded', initRealFirebaseApp);
 
+// + Create पॉप-अपच्या बाहेर कुठेही टॅप केल्यास लगेच बंद होईल!
+function setupGlobalOutsideClickForCreateMenu() {
+  const closeMenu = (e) => {
+    const menu = document.getElementById('create-dropdown-menu');
+    const btn = document.querySelector('.header-create-btn');
+    if (!menu || menu.style.display !== 'block') return;
+    if (menu.contains(e.target) || (btn && btn.contains(e.target))) return;
+    menu.style.display = 'none';
+  };
+  document.addEventListener('click', closeMenu);
+  document.addEventListener('touchstart', closeMenu, { passive: true });
+}
+
 function showToast(msg) {
   let t = document.getElementById('custom-toast');
   if (!t) return;
@@ -147,20 +163,18 @@ function showToast(msg) {
 }
 
 // =========================================================
-// DYNAMIC PRO UI INJECTOR (CHAT, SCROLLABLE VIEWER, IG MENU, NOTIFICATIONS)
+// DYNAMIC PRO UI INJECTOR (CHAT, IG REELS VIEWER, DUAL MENUS, NOTIFICATIONS)
 // =========================================================
 function injectProModalsIntoDOM() {
   if (document.getElementById('pro-messenger-modal')) return;
 
   const wrapper = document.createElement('div');
   wrapper.innerHTML = `
-    <!-- चॅटसाठी छुपे कॅमेरा आणि गॅलरी इनपुट्स -->
-    <input type="file" id="chat-camera-input" accept="image/*,video/*" capture="environment" style="display:none;" onchange="handleChatMediaUpload(event, 'camera')">
-    <input type="file" id="chat-gallery-input" accept="image/*,video/*" style="display:none;" onchange="handleChatMediaUpload(event, 'gallery')">
+    <input type="file" id="chat-camera-input" accept="image/*,video/*" capture="environment" style="display:none;" onchange="handleChatMediaUpload(event)">
+    <input type="file" id="chat-gallery-input" accept="image/*,video/*" style="display:none;" onchange="handleChatMediaUpload(event)">
 
-    <!-- 1. MESSENGER FULLSCREEN CHAT (WITH VISIBLE SEND BTN, VOICE RECORDER & DELETE CHAT) -->
+    <!-- 1. MESSENGER FULLSCREEN CHAT -->
     <div id="pro-messenger-modal" style="display:none; position:fixed; inset:0; background:#ffffff; z-index:6000; flex-direction:column; font-family:'Poppins', sans-serif;">
-      <!-- Top Header -->
       <div style="display:flex; align-items:center; justify-content:space-between; padding:10px 14px; border-bottom:1px solid #f1f5f9; background:#fff; flex-shrink:0;">
         <div style="display:flex; align-items:center; gap:10px; min-width:0;">
           <button onclick="closeMessengerChat()" style="background:none; border:none; font-size:20px; color:#2563eb; cursor:pointer; padding:4px;"><i class="fa-solid fa-arrow-left"></i></button>
@@ -177,10 +191,9 @@ function injectProModalsIntoDOM() {
         </div>
       </div>
 
-      <!-- Scrollable Messages Body -->
       <div id="msg-win-body" style="flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:10px; background:#ffffff;">
         <div style="text-align:center; padding:16px 10px 12px;">
-          <img id="msg-win-center-avatar" src="" style="width:86px; height:86px; border-radius:50%; object-fit:cover; box-shadow:0 4px 14px rgba(0,0,0,0.1);">
+          <img id="msg-win-center-avatar" src="" style="width:84px; height:84px; border-radius:50%; object-fit:cover; box-shadow:0 4px 14px rgba(0,0,0,0.1);">
           <h2 id="msg-win-center-name" style="margin:8px 0 4px; font-size:19px; font-weight:800; color:#0f172a;">User</h2>
           <button onclick="closeMessengerChat(); openUserProfile(activeChatPeerUid);" style="background:#f1f5f9; color:#0f172a; border:none; padding:6px 16px; border-radius:20px; font-weight:700; font-size:12.5px; cursor:pointer;">View profile</button>
           <div style="font-size:10.5px; color:#94a3b8; margin-top:6px;">(कोणताही मेसेज डिलीट करण्यासाठी त्या मेसेजवर टच करा)</div>
@@ -191,47 +204,105 @@ function injectProModalsIntoDOM() {
         </div>
       </div>
 
-      <!-- Voice Recording Indicator Bar -->
-      <div id="voice-rec-bar" style="display:none; background:#fef2f2; color:#dc2626; padding:8px 16px; font-size:13px; font-weight:700; align-items:center; justify-content:space-between; border-top:1px solid #fecaca;">
-        <span>🔴 आवाज रेकॉर्ड होत आहे... (थांबवण्यासाठी माईकवर पुन्हा टॅप करा)</span>
-        <button onclick="stopAndSendVoiceNote()" style="background:#dc2626; color:#fff; border:none; padding:4px 12px; border-radius:12px; font-weight:700; cursor:pointer;">Send Audio</button>
+      <div id="voice-rec-bar" style="display:none; background:#fef2f2; color:#dc2626; padding:8px 16px; font-size:12.5px; font-weight:700; align-items:center; justify-content:space-between; border-top:1px solid #fecaca;">
+        <span>🔴 आवाज रेकॉर्ड होत आहे...</span>
+        <button onclick="stopAndSendVoiceNote()" style="background:#dc2626; color:#fff; border:none; padding:5px 14px; border-radius:12px; font-weight:700; cursor:pointer;">Send Voice Note</button>
       </div>
 
-      <!-- Bottom Input Bar (Fixed Layout so Send Button NEVER hides!) -->
       <div style="display:flex; align-items:center; gap:8px; padding:8px 10px; border-top:1px solid #f1f5f9; background:#fff; flex-shrink:0; width:100%; box-sizing:border-box;">
-        <button onclick="triggerChatCamera()" style="background:none; border:none; color:#2563eb; font-size:20px; padding:4px; cursor:pointer; flex-shrink:0;" title="Camera"><i class="fa-solid fa-camera"></i></button>
-        <button onclick="triggerChatGallery()" style="background:none; border:none; color:#2563eb; font-size:20px; padding:4px; cursor:pointer; flex-shrink:0;" title="Gallery"><i class="fa-regular fa-image"></i></button>
-        <button id="chat-mic-btn" onclick="toggleRealVoiceRecording()" style="background:none; border:none; color:#2563eb; font-size:20px; padding:4px; cursor:pointer; flex-shrink:0;" title="Record Voice"><i class="fa-solid fa-microphone"></i></button>
+        <button onclick="document.getElementById('chat-camera-input').click()" style="background:none; border:none; color:#2563eb; font-size:20px; padding:4px; cursor:pointer; flex-shrink:0;"><i class="fa-solid fa-camera"></i></button>
+        <button onclick="document.getElementById('chat-gallery-input').click()" style="background:none; border:none; color:#2563eb; font-size:20px; padding:4px; cursor:pointer; flex-shrink:0;"><i class="fa-regular fa-image"></i></button>
+        <button id="chat-mic-btn" onclick="toggleRealVoiceRecording()" style="background:none; border:none; color:#2563eb; font-size:20px; padding:4px; cursor:pointer; flex-shrink:0;"><i class="fa-solid fa-microphone"></i></button>
         
         <div style="flex:1; min-width:0; display:flex; align-items:center; background:#f1f5f9; border-radius:24px; padding:7px 12px;">
           <input type="text" id="msg-win-input" placeholder="Message..." style="flex:1; width:100%; min-width:0; border:none; background:transparent; outline:none; font-size:14px; color:#0f172a;" onkeypress="if(event.key==='Enter') sendMessengerText()">
           <i class="fa-regular fa-face-smile" style="color:#2563eb; font-size:18px; cursor:pointer; margin-left:6px; flex-shrink:0;" onclick="const i=document.getElementById('msg-win-input'); i.value+='😊'; i.focus();"></i>
         </div>
 
-        <!-- Always Visible Blue Send Button & Thumbs Up -->
-        <button id="msg-send-btn" onclick="sendMessengerText()" style="background:#2563eb; color:#fff; border:none; width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; cursor:pointer; flex-shrink:0; box-shadow:0 2px 6px rgba(37,99,235,0.3);"><i class="fa-solid fa-paper-plane"></i></button>
-        <button id="msg-thumb-btn" onclick="sendMessengerThumb()" style="background:none; border:none; color:#2563eb; font-size:22px; padding:2px 4px; cursor:pointer; flex-shrink:0;"><i class="fa-solid fa-thumbs-up"></i></button>
+        <button onclick="sendMessengerText()" style="background:#2563eb; color:#fff; border:none; width:38px; height:38px; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:15px; cursor:pointer; flex-shrink:0;"><i class="fa-solid fa-paper-plane"></i></button>
+        <button onclick="sendMessengerThumb()" style="background:none; border:none; color:#2563eb; font-size:22px; padding:2px 4px; cursor:pointer; flex-shrink:0;"><i class="fa-solid fa-thumbs-up"></i></button>
       </div>
     </div>
 
-    <!-- 2. VERTICAL SCROLLABLE FULLSCREEN MEDIA & REELS FEED (WITH 3-DOT MENU & DELETE) -->
+    <!-- 2. INSTAGRAM REELS STYLE FULLSCREEN VERTICAL SCROLL PLAYER -->
     <div id="pro-scroll-feed-modal" style="display:none; position:fixed; inset:0; background:#000000; z-index:6200; flex-direction:column; font-family:'Poppins', sans-serif;">
-      <div style="position:fixed; top:0; left:0; right:0; z-index:6210; display:flex; align-items:center; justify-content:space-between; padding:12px 16px; background:linear-gradient(rgba(0,0,0,0.75), transparent); color:#fff;">
-        <div style="display:flex; align-items:center; gap:12px;">
-          <button onclick="closeScrollableFeedModal()" style="background:rgba(255,255,255,0.18); border:none; color:#fff; width:36px; height:36px; border-radius:50%; font-size:17px; cursor:pointer;"><i class="fa-solid fa-arrow-left"></i></button>
-          <span id="scroll-feed-header-title" style="font-weight:800; font-size:16px;">Reels & Media</span>
+      <div style="position:fixed; top:0; left:0; right:0; z-index:6210; display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:linear-gradient(rgba(0,0,0,0.75), transparent); color:#fff;">
+        <div style="display:flex; align-items:center; gap:14px;">
+          <button onclick="closeScrollableFeedModal()" style="background:none; border:none; color:#fff; font-size:22px; cursor:pointer;"><i class="fa-solid fa-arrow-left"></i></button>
+          <span id="scroll-feed-header-title" style="font-weight:800; font-size:18px;">Reels</span>
+          <span style="font-weight:600; font-size:16px; opacity:0.65; margin-left:6px;">Friends</span>
         </div>
-        <span style="font-size:12px; background:rgba(255,255,255,0.2); padding:4px 10px; border-radius:14px;">↕️ वर-खाली स्क्रोल करा</span>
+        <span style="font-size:11.5px; background:rgba(255,255,255,0.18); padding:4px 10px; border-radius:14px;">↕️ Swipe Up/Down</span>
       </div>
       <div id="pro-scroll-feed-body" style="flex:1; height:100vh; overflow-y:scroll; scroll-snap-type:y mandatory; -webkit-overflow-scrolling:touch;"></div>
     </div>
 
-    <!-- 3. INSTAGRAM STYLE 3-DOT ACTION SHEET (ARCHIVE, HIDE, EDIT, PIN, DELETE) -->
-    <div id="pro-ig-action-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:6800; align-items:flex-end; justify-content:center; font-family:'Poppins', sans-serif;" onclick="closeItemActionMenu()">
+    <!-- 3A. PUBLIC REELS 3-DOT MENU (EXACT LIKE SCREENSHOT: Save, Remix, Sequence, View Fullscreen, Auto Scroll, Interested, Not Interested, Report) -->
+    <div id="pro-reel-public-menu-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:6800; align-items:flex-end; justify-content:center; font-family:'Poppins', sans-serif;" onclick="closeAllActionMenus()">
+      <div style="background:#ffffff; width:100%; max-width:480px; border-radius:24px 24px 0 0; padding:10px 0 24px; box-shadow:0 -4px 25px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
+        <div style="width:42px; height:4px; background:#cbd5e1; border-radius:4px; margin:4px auto 14px;"></div>
+
+        <!-- Top 3 Pills: Save, Remix, Sequence -->
+        <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; padding:0 16px 14px; border-bottom:1px solid #f1f5f9;">
+          <div onclick="handlePublicReelAction('save')" style="background:#f8fafc; border-radius:14px; padding:14px 8px; text-align:center; cursor:pointer;">
+            <i class="fa-regular fa-bookmark" style="font-size:21px; color:#0f172a; display:block; margin-bottom:6px;"></i>
+            <span style="font-size:13px; font-weight:600; color:#0f172a;">Save</span>
+          </div>
+          <div onclick="handlePublicReelAction('remix')" style="background:#f8fafc; border-radius:14px; padding:14px 8px; text-align:center; cursor:pointer;">
+            <i class="fa-solid fa-repeat" style="font-size:21px; color:#0f172a; display:block; margin-bottom:6px;"></i>
+            <span style="font-size:13px; font-weight:600; color:#0f172a;">Remix</span>
+          </div>
+          <div onclick="handlePublicReelAction('sequence')" style="background:#f8fafc; border-radius:14px; padding:14px 8px; text-align:center; cursor:pointer;">
+            <i class="fa-solid fa-Clapperboard" style="font-size:21px; color:#0f172a; display:block; margin-bottom:6px;"></i>
+            <span style="font-size:13px; font-weight:600; color:#0f172a;">Sequence</span>
+          </div>
+        </div>
+
+        <div style="display:flex; flex-direction:column; font-size:15px; font-weight:500; color:#0f172a; padding-top:6px;">
+          <div onclick="handlePublicReelAction('fullscreen')" style="display:flex; align-items:center; gap:16px; padding:13px 20px; cursor:pointer;">
+            <i class="fa-solid fa-expand" style="width:22px; font-size:18px;"></i> <span>View fullscreen</span>
+          </div>
+          <div onclick="toggleReelAutoScroll()" style="display:flex; align-items:center; justify-content:space-between; padding:13px 20px; cursor:pointer;">
+            <div style="display:flex; align-items:center; gap:16px;">
+              <i class="fa-solid fa-rotate-right" style="width:22px; font-size:18px;"></i> <span>Auto scroll</span>
+            </div>
+            <div style="display:flex; align-items:center; gap:10px;">
+              <span style="background:#4f46e5; color:#fff; font-size:11px; font-weight:700; padding:2px 8px; border-radius:10px;">New</span>
+              <div id="auto-scroll-switch" style="width:44px; height:24px; background:#cbd5e1; border-radius:20px; position:relative; transition:0.2s;">
+                <div id="auto-scroll-knob" style="width:20px; height:20px; background:#fff; border-radius:50%; position:absolute; top:2px; left:2px; transition:0.2s;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div style="border-top:1px solid #f1f5f9; margin:4px 0;"></div>
+
+          <div onclick="handlePublicReelAction('why')" style="display:flex; align-items:center; gap:16px; padding:13px 20px; cursor:pointer;">
+            <i class="fa-solid fa-circle-info" style="width:22px; font-size:18px;"></i> <span>Why you're seeing this post</span>
+          </div>
+          <div onclick="handlePublicReelAction('interested')" style="display:flex; align-items:center; gap:16px; padding:13px 20px; cursor:pointer;">
+            <i class="fa-regular fa-eye" style="width:22px; font-size:18px;"></i> <span>Interested</span>
+          </div>
+          <div onclick="handlePublicReelAction('not_interested')" style="display:flex; align-items:center; gap:16px; padding:13px 20px; cursor:pointer;">
+            <i class="fa-regular fa-eye-slash" style="width:22px; font-size:18px;"></i> <span>Not interested</span>
+          </div>
+          <div onclick="handlePublicReelAction('report')" style="display:flex; align-items:center; gap:16px; padding:13px 20px; cursor:pointer; color:#dc2626; font-weight:700;">
+            <i class="fa-solid fa-circle-exclamation" style="width:22px; font-size:18px; color:#dc2626;"></i> <span>Report</span>
+          </div>
+
+          <div style="border-top:1px solid #f1f5f9; margin:4px 0;"></div>
+
+          <div onclick="handlePublicReelAction('preferences')" style="display:flex; align-items:center; gap:16px; padding:13px 20px; cursor:pointer;">
+            <i class="fa-solid fa-sliders" style="width:22px; font-size:18px;"></i> <span>Manage content preferences</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3B. PROFILE OWNER 3-DOT MENU (Archive, Hide Likes, Turn Off Comments, Edit, Pin, Remove Grid, Delete) -->
+    <div id="pro-ig-action-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:6800; align-items:flex-end; justify-content:center; font-family:'Poppins', sans-serif;" onclick="closeAllActionMenus()">
       <div style="background:#ffffff; width:100%; max-width:480px; max-height:85vh; border-radius:24px 24px 0 0; overflow-y:auto; padding:10px 0 24px; box-shadow:0 -4px 25px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
         <div style="width:42px; height:4px; background:#cbd5e1; border-radius:4px; margin:4px auto 14px;"></div>
         
-        <!-- Top 3 Quick Action Boxes (Save, Remix, QR code) -->
         <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; padding:0 16px 14px; border-bottom:1px solid #f1f5f9;">
           <div onclick="handleIGMenuAction('save')" style="background:#f8fafc; border-radius:14px; padding:12px 8px; text-align:center; cursor:pointer;">
             <i class="fa-regular fa-bookmark" style="font-size:20px; color:#0f172a; display:block; margin-bottom:6px;"></i>
@@ -247,10 +318,9 @@ function injectProModalsIntoDOM() {
           </div>
         </div>
 
-        <!-- Full Action Options List (Exact match to Screenshots 4 & 5) -->
         <div style="display:flex; flex-direction:column; font-size:15px; font-weight:500; color:#0f172a;">
           <div onclick="handleIGMenuAction('archive')" style="display:flex; align-items:center; gap:16px; padding:13px 20px; cursor:pointer;">
-            <i class="fa-solid fa-clock-rotate-left" style="width:22px; font-size:18px;"></i> <span id="ig-txt-archive">Archive (होलो / लपवा)</span>
+            <i class="fa-solid fa-clock-rotate-left" style="width:22px; font-size:18px;"></i> <span id="ig-txt-archive">Archive</span>
           </div>
           <div onclick="handleIGMenuAction('hideLikes')" style="display:flex; align-items:center; gap:16px; padding:13px 20px; cursor:pointer;">
             <i class="fa-regular fa-heart" style="width:22px; font-size:18px;"></i> <span id="ig-txt-likes">Hide like count to others</span>
@@ -262,19 +332,19 @@ function injectProModalsIntoDOM() {
             <i class="fa-regular fa-comment-slash" style="width:22px; font-size:18px;"></i> <span id="ig-txt-comments">Turn off commenting</span>
           </div>
           <div onclick="handleIGMenuAction('edit')" style="display:flex; align-items:center; gap:16px; padding:13px 20px; cursor:pointer;">
-            <i class="fa-solid fa-pen" style="width:22px; font-size:18px;"></i> <span>Edit Caption / Info</span>
+            <i class="fa-solid fa-pen" style="width:22px; font-size:18px;"></i> <span>Edit</span>
           </div>
           <div onclick="handleIGMenuAction('pin')" style="display:flex; align-items:center; gap:16px; padding:13px 20px; cursor:pointer;">
             <i class="fa-solid fa-thumbtack" style="width:22px; font-size:18px;"></i> <span id="ig-txt-pin">Pin to your main grid</span>
           </div>
           <div onclick="handleIGMenuAction('removeGrid')" style="display:flex; align-items:center; gap:16px; padding:13px 20px; cursor:pointer;">
-            <i class="fa-solid fa-circle-minus" style="width:22px; font-size:18px;"></i> <span>Remove from main grid (Hide)</span>
+            <i class="fa-solid fa-circle-minus" style="width:22px; font-size:18px;"></i> <span>Remove from main grid</span>
           </div>
           <div onclick="handleIGMenuAction('insights')" style="display:flex; align-items:center; gap:16px; padding:13px 20px; cursor:pointer;">
-            <i class="fa-solid fa-chart-Simple" style="width:22px; font-size:18px;"></i> <span>View insights</span>
+            <i class="fa-solid fa-chart-simple" style="width:22px; font-size:18px;"></i> <span>View insights</span>
           </div>
           <div onclick="handleIGMenuAction('delete')" style="display:flex; align-items:center; gap:16px; padding:14px 20px; cursor:pointer; color:#dc2626; font-weight:700; border-top:1px solid #f1f5f9; margin-top:4px;">
-            <i class="fa-regular fa-trash-can" style="width:22px; font-size:19px; color:#dc2626;"></i> <span>Delete Permanently</span>
+            <i class="fa-regular fa-trash-can" style="width:22px; font-size:19px; color:#dc2626;"></i> <span>Delete</span>
           </div>
         </div>
       </div>
@@ -287,7 +357,7 @@ function injectProModalsIntoDOM() {
           <button onclick="closeProNotifications()" style="background:none; border:none; font-size:20px; color:#0f172a; cursor:pointer;"><i class="fa-solid fa-arrow-left"></i></button>
           <h3 style="margin:0; font-size:19px; font-weight:800; color:#0f172a;">Notifications</h3>
         </div>
-        <span style="color:#2563eb; font-weight:700; font-size:14px; cursor:pointer;" onclick="markAllNotificationsRead()">Filter</span>
+        <span style="color:#dc2626; font-weight:700; font-size:13px; cursor:pointer;" onclick="clearMyNotifications()">Clear All</span>
       </div>
       <div id="pro-notif-list-body" style="flex:1; overflow-y:auto; padding-bottom:30px;"></div>
     </div>
@@ -320,7 +390,6 @@ function setupVideoFileInput() {
   }
 }
 
-// बिझनेस प्रोफाईलमध्येही Posts, Reels, Moments, Products टॅब्स चालू करा
 function upgradeBusinessProfileTabs() {
   const bizTabs = document.querySelector('#business-profile-box .prof-sub-tabs');
   if (bizTabs) {
@@ -450,20 +519,21 @@ async function submitRegistration() {
     let name = authAccountType === 'people'
       ? document.getElementById('reg-p-name').value.trim()
       : document.getElementById('reg-b-name').value.trim();
+    let finalName = name || 'ALBIZNET User';
 
     let userPayload = {
       uid: uid,
       type: authAccountType,
-      name: name || 'ALBIZNET User',
-      handle: '@' + (name || 'user').toLowerCase().replace(/\s+/g, ''),
+      name: finalName,
+      handle: '@' + finalName.toLowerCase().replace(/\s+/g, ''),
       category: authAccountType === 'business' ? (document.getElementById('reg-b-cat').value.trim() || 'Shops') : 'Personal Account',
       about: authAccountType === 'business'
         ? (document.getElementById('reg-b-about').value.trim() || 'Welcome to our official business store!')
-        : `Hi! I'm ${name || 'a creator'}, connected on ALBIZNET.`,
+        : `Hi! I'm ${finalName}, connected on ALBIZNET.`,
       location: loc,
       phone: mob,
       email: email || authEmail,
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+      avatar: `https://ui-avatars.com/api/?name=${encodeURIComponent(finalName)}&background=4f46e5&color=fff&bold=true`,
       followersCount: 0,
       followingCount: 0,
       postsCount: 0,
@@ -472,7 +542,7 @@ async function submitRegistration() {
 
     await db.collection('users').doc(uid).set(userPayload, { merge: true });
     currentUserData = userPayload;
-    showToast('🎉 तुमचे रिअल अकाउंट तयार झाले!');
+    showToast(`🎉 स्वागत आहे ${finalName}! तुमचे अकाउंट तयार झाले.`);
     launchMainApp();
   } catch (err) {
     showToast('❌ Error: ' + err.message);
@@ -505,17 +575,18 @@ async function openGoogleChooser() {
     const snap = await docRef.get();
 
     if (!snap.exists) {
+      let gName = u.displayName || 'User';
       let newData = {
         uid: u.uid,
         type: authAccountType || 'people',
-        name: u.displayName || 'User',
+        name: gName,
         handle: '@' + (u.email ? u.email.split('@')[0] : 'user'),
         category: authAccountType === 'business' ? 'Shops' : 'Personal Account',
-        about: `Hi! I'm ${u.displayName || 'here'} on ALBIZNET.`,
+        about: `Hi! I'm ${gName} on ALBIZNET.`,
         location: 'Ardhapur, Maharashtra',
         phone: u.phoneNumber || '',
         email: u.email || '',
-        avatar: u.photoURL || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80',
+        avatar: u.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(gName)}&background=4f46e5&color=fff&bold=true`,
         followersCount: 0,
         followingCount: 0,
         postsCount: 0,
@@ -539,25 +610,24 @@ function closeGoogleChooser() {
 }
 
 // =========================================================
-// 2. REAL-TIME STREAMS (24H STORIES, VIDEO REELS, POSTS, ARCHIVE/PIN SUPPORT)
+// 2. REAL-TIME STREAMS (STRICT USER ISOLATION & EXACT REEL ORDER)
 // =========================================================
 function launchMainApp() {
   document.getElementById('welcome-screen').style.display = 'none';
   document.getElementById('auth-screen').style.display = 'none';
   document.getElementById('main-app-shell').style.display = 'block';
 
-  if (currentUserData && currentUserData.location) {
+  if (currentUserData) {
     let locTxt = document.getElementById('nearby-user-loc-txt');
-    if (locTxt) locTxt.innerText = currentUserData.location;
-  }
-  if (currentUserData && currentUserData.avatar) {
+    if (locTxt && currentUserData.location) locTxt.innerText = currentUserData.location;
     let cmtAv = document.getElementById('cmt-my-avatar');
-    if (cmtAv) cmtAv.src = currentUserData.avatar;
+    if (cmtAv && currentUserData.avatar) cmtAv.src = currentUserData.avatar;
+    activeProfileUser = currentUserData;
   }
 
+  listenToAllUsersDirectory();
   listenToRealPostsAndReels();
   listenToRealOffers();
-  listenToRealNearbyStores();
   listenToRealMessages();
   listenToRealNotifications();
   switchBottomNav('home');
@@ -567,20 +637,29 @@ function sortByPinnedAndCreatedDesc(arr) {
   return arr.sort((a, b) => {
     if (a.pinned && !b.pinned) return -1;
     if (!a.pinned && b.pinned) return 1;
-    let tA = a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : (a.timeMs || 0);
-    let tB = b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : (b.timeMs || 0);
+    let tA = a.timeMs || (a.createdAt && a.createdAt.toMillis ? a.createdAt.toMillis() : 0);
+    let tB = b.timeMs || (b.createdAt && b.createdAt.toMillis ? b.createdAt.toMillis() : 0);
     return tB - tA;
   });
 }
 
 function getRelativeTime(ms) {
-  if (!ms) return '1m';
+  if (!ms) return 'Just now';
   let diff = Math.floor((Date.now() - ms) / 1000);
   if (diff < 60) return 'Just now';
   if (diff < 3600) return Math.floor(diff / 60) + 'm';
   if (diff < 86400) return Math.floor(diff / 3600) + 'h';
   if (diff < 604800) return Math.floor(diff / 86400) + 'd';
   return Math.floor(diff / 604800) + 'w';
+}
+
+function listenToAllUsersDirectory() {
+  db.collection('users').onSnapshot(snap => {
+    cacheAllUsers = snap.docs.map(d => ({ id: d.id, uid: d.id, ...d.data() }));
+    cacheBusinesses = cacheAllUsers.filter(u => u.type === 'business');
+    renderNearbyStores();
+    renderMessagesPeopleBar();
+  });
 }
 
 function listenToRealPostsAndReels() {
@@ -626,7 +705,7 @@ function listenToRealPostsAndReels() {
 
   db.collection('notes').onSnapshot(snap => {
     cacheNotes = sortByPinnedAndCreatedDesc(snap.docs.map(d => ({ id: d.id, _col: 'notes', ...d.data() })));
-    renderNotesBarInMessages();
+    renderMessagesPeopleBar();
     renderProfileMediaGrid();
   });
 
@@ -645,7 +724,7 @@ function renderStoriesMomentsBar() {
   const visibleStories = cacheStories.filter(s => !s.archived && !s.hiddenFromGrid);
 
   const realStoriesHTML = visibleStories.map(st => `
-    <div class="story-circle-item" onclick="openScrollableMediaFeed('stories', '${st.id}', 'Moments & Stories')">
+    <div class="story-circle-item" onclick="openScrollableMediaFeed('stories', '${st.id}', 'Moments', null, 'public_reel')">
       <div class="story-grad-ring"><img src="${st.avatar || st.img}"><span class="story-plus">+</span></div>
       <span>${(st.author || 'User').split(' ')[0]}</span>
     </div>
@@ -663,19 +742,24 @@ function renderReelsBar() {
     rBox.innerHTML = `<p style="font-size:12px; color:#64748b; padding:10px;">अजून कोणतीही Reel नाही. '+ Create ➔ Reel' वरून व्हिडिओ टाका!</p>`;
     return;
   }
+
   rBox.innerHTML = visibleReels.map(r => {
     const isVid = r.mediaType === 'video' || (r.img && r.img.startsWith('data:video'));
+    const titleTxt = r.caption || r.author || 'Reel';
     return `
-      <div class="reel-thumb-card" onclick="openScrollableMediaFeed('reels', '${r.id}', 'Shorts & Reels ⚡')" style="min-width:135px; height:210px; background:#000; border-radius:14px; position:relative; overflow:hidden; cursor:pointer; margin-right:10px; flex-shrink:0;">
+      <div class="reel-thumb-card" onclick="openScrollableMediaFeed('reels', '${r.id}', 'Reels', null, 'public_reel')" style="min-width:138px; height:215px; background:#0f172a; border-radius:16px; position:relative; overflow:hidden; cursor:pointer; margin-right:10px; flex-shrink:0;">
         ${isVid
-          ? `<video src="${r.img}" style="width:100%; height:100%; object-fit:cover;" muted loop playsinline></video>`
+          ? `<video src="${r.img}#t=0.1" style="width:100%; height:100%; object-fit:cover;" muted playsinline preload="metadata"></video>`
           : `<img src="${r.img}" style="width:100%; height:100%; object-fit:cover;">`
         }
-        <button onclick="event.stopPropagation(); openItemActionMenu('${r.id}', 'reels')" style="position:absolute; top:6px; right:6px; background:rgba(0,0,0,0.6); color:#fff; border:none; width:26px; height:26px; border-radius:50%; font-size:13px; cursor:pointer; z-index:2;"><i class="fa-solid fa-ellipsis-vertical"></i></button>
-        <div class="reel-play-pill" style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.65); color:#fff; padding:6px 12px; border-radius:20px; font-size:12px; font-weight:700;"><i class="fa-solid fa-play"></i> Play</div>
-        <div class="reel-bottom-meta" style="position:absolute; bottom:8px; left:8px; right:8px; color:#fff; font-size:11px; text-shadow:0 1px 3px #000;">
-          <span class="reel-views-txt">${r.views || 1} Views 🔥</span>
-          <div class="reel-author-row" style="display:flex; justify-content:space-between; font-weight:700;"><span>${(r.author || 'User').split(' ')[0]}</span><span>${isVid ? '🎬' : '0:30'}</span></div>
+        <button onclick="event.stopPropagation(); openItemActionMenu('${r.id}', 'reels', 'public_reel')" style="position:absolute; top:8px; right:8px; background:rgba(0,0,0,0.6); color:#fff; border:none; width:28px; height:28px; border-radius:50%; font-size:13px; cursor:pointer; z-index:2;"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+        <div style="position:absolute; top:50%; left:50%; transform:translate(-50%,-50%); background:rgba(0,0,0,0.6); color:#fff; padding:6px 12px; border-radius:20px; font-size:12px; font-weight:700;"><i class="fa-solid fa-play"></i> Play</div>
+        <div style="position:absolute; bottom:8px; left:8px; right:8px; color:#fff; font-size:11px; text-shadow:0 1px 3px #000;">
+          <div style="font-weight:800; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; margin-bottom:2px;">${titleTxt}</div>
+          <div style="display:flex; justify-content:space-between; opacity:0.9;">
+            <span>${r.views || 1} Views 🔥</span>
+            <span>${(r.author || 'User').split(' ')[0]}</span>
+          </div>
         </div>
       </div>
     `;
@@ -683,7 +767,7 @@ function renderReelsBar() {
 }
 
 // =========================================================
-// HOME FEED POSTS (WITH 3-DOT MENU & 3 BOTTOM BUTTONS)
+// HOME FEED POSTS
 // =========================================================
 function renderHomeFeed() {
   let pBox = document.getElementById('home-posts-feed');
@@ -699,6 +783,8 @@ function renderHomeFeed() {
 
   pBox.innerHTML = visiblePosts.map(p => {
     let postId = p.id;
+    let isMyPost = currentUserData && p.uid === currentUserData.uid;
+    let menuCtx = isMyPost ? 'profile_owner' : 'public_reel';
     let likedBy = Array.isArray(p.likedBy) ? p.likedBy : [];
     let isLiked = likedBy.includes(myUid);
     let likeCount = typeof p.likes === 'number' ? p.likes : likedBy.length;
@@ -716,17 +802,15 @@ function renderHomeFeed() {
             </div>
             <div class="fp-cat-tag" style="font-size:12px; color:#64748b;"><i class="fa-solid fa-location-dot"></i> ${p.location || 'Maharashtra'} &bull; <span style="color:#4f46e5; font-weight:700;">${p.category || 'Post'}</span></div>
           </div>
-          <!-- 3-DOT MENU BUTTON ON EVERY POST -->
-          <button onclick="openItemActionMenu('${postId}', 'posts')" style="background:#f8fafc; border:none; width:34px; height:34px; border-radius:50%; color:#334155; font-size:16px; cursor:pointer;"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+          <button onclick="openItemActionMenu('${postId}', 'posts', '${menuCtx}')" style="background:#f8fafc; border:none; width:34px; height:34px; border-radius:50%; color:#334155; font-size:16px; cursor:pointer;"><i class="fa-solid fa-ellipsis-vertical"></i></button>
         </div>
         <div class="fp-caption" style="font-size:14.5px; color:#1e293b; margin-bottom:10px; line-height:1.45;">${p.caption || ''}</div>
         ${p.img ? (
           isVid
-            ? `<video src="${p.img}" controls playsinline onclick="openScrollableMediaFeed('posts', '${postId}', 'Posts Feed')" style="width:100%; max-height:400px; border-radius:14px; background:#000; cursor:pointer;"></video>`
-            : `<img class="fp-media-img" src="${p.img}" onclick="openScrollableMediaFeed('posts', '${postId}', 'Posts Feed')" style="width:100%; max-height:400px; object-fit:cover; border-radius:14px; cursor:pointer;">`
+            ? `<video src="${p.img}" controls playsinline style="width:100%; max-height:400px; border-radius:14px; background:#000;"></video>`
+            : `<img class="fp-media-img" src="${p.img}" onclick="openScrollableMediaFeed('posts', '${postId}', 'Posts', null, '${menuCtx}')" style="width:100%; max-height:400px; object-fit:cover; border-radius:14px; cursor:pointer;">`
         ) : ''}
         
-        <!-- 3 BUTTONS: LIKE/UNLIKE, COMMENT, SHARE -->
         <div class="fp-actions-bar" style="display:flex; justify-content:space-around; align-items:center; padding-top:12px; margin-top:12px; border-top:1px solid #f1f5f9; font-size:14px; font-weight:700; color:#334155;">
           <div onclick="toggleLikeDislikeItem('${postId}', 'posts')" style="cursor:pointer; display:flex; align-items:center; gap:6px; color:${isLiked ? '#e11d48' : '#475569'};">
             <i class="${isLiked ? 'fa-solid' : 'fa-regular'} fa-heart" style="font-size:18px; color:${isLiked ? '#e11d48' : '#475569'};"></i>
@@ -769,82 +853,108 @@ async function toggleLikeDislikeItem(itemId, colName = 'posts') {
     likedBy = likedBy.filter(id => id !== myUid);
     currentLikes = Math.max(0, currentLikes - 1);
     await db.collection(colName).doc(itemId).update({ likedBy, likes: currentLikes });
-    showToast('💔 Like काढून टाकले');
   } else {
     likedBy.push(myUid);
     currentLikes = currentLikes + 1;
     await db.collection(colName).doc(itemId).update({ likedBy, likes: currentLikes });
-    showToast('❤️ Liked!');
+
+    // फक्त पोस्टच्या मालकालाच (Target User) नोटिफिकेशन पाठवा!
+    if (item.uid && item.uid !== myUid) {
+      await pushRealNotification({
+        targetUid: item.uid,
+        type: 'like',
+        actorUid: currentUserData.uid,
+        actorName: currentUserData.name,
+        actorHandle: currentUserData.handle || '@' + currentUserData.name.toLowerCase().replace(/\s+/g, ''),
+        actorAvatar: currentUserData.avatar,
+        text: `liked your ${colName.slice(0, -1)}: "${(item.caption || 'Media').substring(0, 22)}"`,
+        postImg: item.mediaType === 'video' ? '' : (item.img || '')
+      });
+    }
   }
 }
 
 // =========================================================
-// VERTICAL SCROLLABLE REELS & MEDIA FEED (TIKTOK / IG STYLE)
+// INSTAGRAM REELS FULLSCREEN VERTICAL PLAYER (EXACT ITEM MATCH + AUTO-SCROLL)
 // =========================================================
-function openScrollableMediaFeed(colName, startId, headerTitle, customList) {
-  let list = customList;
-  if (!list) {
-    const raw = getCacheArrayByCol(colName);
-    list = raw.filter(i => !i.archived);
-  }
-  if (!list || list.length === 0) return;
+function openScrollableMediaFeed(colName, startId, headerTitle, customList, menuContext = 'public_reel') {
+  let raw = customList || getCacheArrayByCol(colName).filter(i => !i.archived);
+  if (!raw || raw.length === 0) return;
 
-  // ज्या फोटो/व्हिडिओवर क्लिक केले तो पहिल्यांदा येईल आणि खाली बाकीचे स्क्रोल होतील!
-  const startIndex = list.findIndex(x => x.id === startId);
-  let ordered = [...list];
-  if (startIndex > 0) {
-    ordered = [...list.slice(startIndex), ...list.slice(0, startIndex)];
-  }
+  // ज्या रीलवर (उदा. Anaconda Attack) क्लिक केले आहे, नेमकी तीच रील १००% पहिल्या स्लाईडवर येईल!
+  const clickedItem = raw.find(x => String(x.id) === String(startId));
+  const others = raw.filter(x => String(x.id) !== String(startId));
+  const ordered = clickedItem ? [clickedItem, ...others] : [...raw];
 
-  document.getElementById('scroll-feed-header-title').innerText = headerTitle || 'Media Feed';
+  document.getElementById('scroll-feed-header-title').innerText = headerTitle || 'Reels';
   const feedBody = document.getElementById('pro-scroll-feed-body');
   const myUid = currentUserData ? currentUserData.uid : 'guest';
 
-  feedBody.innerHTML = ordered.map(item => {
-    const col = item._col || colName || 'posts';
+  // व्ह्यूज वाढवा
+  if (clickedItem && colName === 'reels') {
+    db.collection('reels').doc(clickedItem.id).update({
+      views: firebase.firestore.FieldValue.increment(1)
+    }).catch(() => {});
+  }
+
+  feedBody.innerHTML = ordered.map((item, index) => {
+    const col = item._col || colName || 'reels';
     const isVid = item.mediaType === 'video' || (item.img && item.img.startsWith('data:video'));
     const label = item.caption || item.deal || item.title || item.noteText || '';
     const author = item.author || item.bizName || item.sellerName || 'ALBIZNET User';
+    const authorAv = item.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(author)}&background=4f46e5&color=fff`;
     const likedBy = Array.isArray(item.likedBy) ? item.likedBy : [];
     const isLiked = likedBy.includes(myUid);
     const likesCount = typeof item.likes === 'number' ? item.likes : likedBy.length;
     const cmtCount = (Array.isArray(item.commentsList) ? item.commentsList.length : item.commentsCount) || 0;
 
     return `
-      <div class="scroll-snap-slide" data-id="${item.id}" data-col="${col}" style="height:100vh; width:100%; scroll-snap-align:start; position:relative; display:flex; align-items:center; justify-content:center; background:#000; overflow:hidden;">
+      <div class="scroll-snap-slide" data-index="${index}" data-id="${item.id}" data-col="${col}" style="height:100vh; width:100%; scroll-snap-align:start; scroll-snap-stop:always; position:relative; display:flex; align-items:center; justify-content:center; background:#000; overflow:hidden;">
         ${isVid
-          ? `<video src="${item.img}" class="scroll-feed-video" loop playsinline controls style="width:100%; max-height:88vh; object-fit:contain;"></video>`
-          : `<img src="${item.img}" style="width:100%; max-height:86vh; object-fit:contain;">`
+          ? `<video src="${item.img}" class="scroll-feed-video" ${index === 0 ? 'autoplay' : ''} playsinline style="width:100%; height:100%; object-fit:contain; background:#000;" onclick="this.paused ? this.play() : this.pause()"></video>`
+          : `<img src="${item.img}" style="width:100%; max-height:88vh; object-fit:contain;">`
         }
 
-        <!-- Right Side Floating Action Buttons (Like, Comment, Share, 3-Dots Menu, Delete) -->
-        <div style="position:absolute; right:14px; bottom:95px; display:flex; flex-direction:column; align-items:center; gap:18px; z-index:5;">
+        <!-- Right Side Instagram Reels Action Bar (Heart, Comment, Remix, Share, Bookmark, 3-Dots) -->
+        <div style="position:absolute; right:14px; bottom:40px; display:flex; flex-direction:column; align-items:center; gap:20px; z-index:5;">
           <div onclick="toggleLikeDislikeItem('${item.id}', '${col}')" style="text-align:center; color:#fff; cursor:pointer; text-shadow:0 2px 6px rgba(0,0,0,0.8);">
-            <i class="fa-solid fa-heart" style="font-size:28px; color:${isLiked ? '#ef4444' : '#ffffff'};"></i>
-            <div style="font-size:12px; font-weight:700;">${item.hideLikes ? '' : likesCount}</div>
+            <i class="${isLiked ? 'fa-solid' : 'fa-regular'} fa-heart" style="font-size:28px; color:${isLiked ? '#ef4444' : '#ffffff'};"></i>
+            <div style="font-size:12px; font-weight:700; margin-top:2px;">${item.hideLikes ? 'Likes' : likesCount}</div>
           </div>
 
           <div onclick="openCommentsModal('${item.id}', '${col}')" style="text-align:center; color:#fff; cursor:pointer; text-shadow:0 2px 6px rgba(0,0,0,0.8);">
-            <i class="fa-solid fa-comment-dots" style="font-size:26px;"></i>
-            <div style="font-size:12px; font-weight:700;">${cmtCount}</div>
+            <i class="fa-regular fa-comment" style="font-size:26px;"></i>
+            <div style="font-size:12px; font-weight:700; margin-top:2px;">${cmtCount}</div>
+          </div>
+
+          <div onclick="openCreateContentModal('Reel')" style="text-align:center; color:#fff; cursor:pointer; text-shadow:0 2px 6px rgba(0,0,0,0.8);">
+            <i class="fa-solid fa-repeat" style="font-size:24px;"></i>
+            <div style="font-size:11px; font-weight:700; margin-top:2px;">Remix</div>
           </div>
 
           <div onclick="shareRealPost('${item.id}', '${label.replace(/'/g, '')}')" style="text-align:center; color:#fff; cursor:pointer; text-shadow:0 2px 6px rgba(0,0,0,0.8);">
-            <i class="fa-solid fa-share" style="font-size:25px;"></i>
-            <div style="font-size:11.5px; font-weight:700;">Share</div>
+            <i class="fa-regular fa-paper-plane" style="font-size:24px;"></i>
           </div>
 
-          <!-- 3-DOTS MORE OPTIONS (Archive, Hide, Pin, Edit, Delete) -->
-          <div onclick="openItemActionMenu('${item.id}', '${col}')" style="text-align:center; color:#fff; cursor:pointer; background:rgba(0,0,0,0.55); width:42px; height:42px; border-radius:50%; display:flex; align-items:center; justify-content:center;">
-            <i class="fa-solid fa-ellipsis-vertical" style="font-size:20px;"></i>
+          <div onclick="showToast('🔖 Saved to collection!')" style="text-align:center; color:#fff; cursor:pointer; text-shadow:0 2px 6px rgba(0,0,0,0.8);">
+            <i class="fa-regular fa-bookmark" style="font-size:24px;"></i>
+          </div>
+
+          <!-- 3-DOTS MENU (Opens Public Reel Menu OR Profile Owner Menu based on context!) -->
+          <div onclick="openItemActionMenu('${item.id}', '${col}', '${menuContext}')" style="text-align:center; color:#fff; cursor:pointer; padding:6px;">
+            <i class="fa-solid fa-ellipsis-vertical" style="font-size:22px;"></i>
           </div>
         </div>
 
-        <!-- Bottom Author & Caption Overlay -->
-        <div style="position:absolute; bottom:24px; left:14px; right:74px; color:#fff; text-shadow:0 1px 4px rgba(0,0,0,0.9); z-index:4;">
-          <div style="font-weight:800; font-size:15.5px; margin-bottom:4px;">@${author} ${item.pinned ? '📌' : ''}</div>
+        <!-- Bottom Left Author Profile, Follow Pill & Caption (Exact Instagram Reels Layout) -->
+        <div style="position:absolute; bottom:28px; left:14px; right:76px; color:#fff; text-shadow:0 1px 4px rgba(0,0,0,0.9); z-index:4;">
+          <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+            <img src="${authorAv}" onclick="closeScrollableFeedModal(); openUserProfile('${item.uid}')" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border:1.5px solid #fff; cursor:pointer;">
+            <span onclick="closeScrollableFeedModal(); openUserProfile('${item.uid}')" style="font-weight:800; font-size:15px; cursor:pointer;">${author}</span>
+            <button onclick="closeScrollableFeedModal(); openUserProfile('${item.uid}')" style="background:transparent; color:#fff; border:1.5px solid rgba(255,255,255,0.85); padding:3px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">Follow</button>
+          </div>
           <div style="font-size:14px; opacity:0.95; line-height:1.35;">${label}</div>
-          ${item.price ? `<div style="color:#4ade80; font-weight:900; font-size:15px; margin-top:4px;">🏷️ ${item.price}</div>` : ''}
+          <div style="font-size:12px; opacity:0.8; margin-top:6px;"><i class="fa-solid fa-music"></i> Original Audio &bull; ${author}</div>
         </div>
       </div>
     `;
@@ -853,26 +963,37 @@ function openScrollableMediaFeed(colName, startId, headerTitle, customList) {
   document.getElementById('pro-scroll-feed-modal').style.display = 'flex';
   feedBody.scrollTop = 0;
 
-  // स्क्रोल केल्यावर व्हिडिओ आपोआप चालू/बंद (Auto-Play on Scroll) होण्यासाठी Observer
   setupScrollVideoAutoPlay();
 }
 
 function setupScrollVideoAutoPlay() {
-  const videos = document.querySelectorAll('#pro-scroll-feed-body .scroll-feed-video');
-  if (!videos.length) return;
+  const slides = document.querySelectorAll('#pro-scroll-feed-body .scroll-snap-slide');
+  const feedBody = document.getElementById('pro-scroll-feed-body');
 
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
-      const vid = entry.target;
+      const vid = entry.target.querySelector('video');
+      if (!vid) return;
       if (entry.isIntersecting) {
+        vid.currentTime = 0;
         vid.play().catch(() => {});
+        vid.onended = () => {
+          if (autoScrollReelsEnabled) {
+            const nextSlide = entry.target.nextElementSibling;
+            if (nextSlide) {
+              nextSlide.scrollIntoView({ behavior: 'smooth' });
+            }
+          } else {
+            vid.play().catch(() => {});
+          }
+        };
       } else {
         vid.pause();
       }
     });
-  }, { threshold: 0.65 });
+  }, { root: feedBody, threshold: 0.65 });
 
-  videos.forEach(v => observer.observe(v));
+  slides.forEach(s => observer.observe(s));
 }
 
 function closeScrollableFeedModal() {
@@ -881,25 +1002,63 @@ function closeScrollableFeedModal() {
 }
 
 // =========================================================
-// INSTAGRAM 3-DOT ACTION SHEET HANDLER (ARCHIVE, HIDE, PIN, EDIT, DELETE)
+// SEPARATE 3-DOT MENUS: PUBLIC REEL MENU vs PROFILE OWNER MENU
 // =========================================================
-function openItemActionMenu(itemId, colName) {
-  activeMenuTarget = { id: itemId, col: colName || 'posts' };
-  const arr = getCacheArrayByCol(activeMenuTarget.col);
-  const item = arr.find(x => x.id === itemId);
+function openItemActionMenu(itemId, colName, contextType = 'profile_owner') {
+  activeMenuTarget = { id: itemId, col: colName || 'posts', context: contextType };
 
-  if (item) {
-    document.getElementById('ig-txt-archive').innerText = item.archived ? 'Unarchive (पुन्हा प्रोफाईलवर दाखवा)' : 'Archive';
-    document.getElementById('ig-txt-likes').innerText = item.hideLikes ? 'Unhide like count' : 'Hide like count to others';
-    document.getElementById('ig-txt-comments').innerText = item.commentsOff ? 'Turn on commenting' : 'Turn off commenting';
-    document.getElementById('ig-txt-pin').innerText = item.pinned ? 'Unpin from main grid' : 'Pin to your main grid';
+  if (contextType === 'public_reel') {
+    // १. पब्लिक रील सेटिंग उघडा (Save, Remix, Sequence, Auto Scroll, Interested, Report)
+    document.getElementById('pro-reel-public-menu-modal').style.display = 'flex';
+  } else {
+    // २. स्वतःच्या प्रोफाईलची रील/पोस्ट सेटिंग उघडा (Archive, Hide, Pin, Edit, Delete)
+    const arr = getCacheArrayByCol(activeMenuTarget.col);
+    const item = arr.find(x => x.id === itemId);
+    if (item) {
+      document.getElementById('ig-txt-archive').innerText = item.archived ? 'Unarchive' : 'Archive';
+      document.getElementById('ig-txt-likes').innerText = item.hideLikes ? 'Unhide like count' : 'Hide like count to others';
+      document.getElementById('ig-txt-comments').innerText = item.commentsOff ? 'Turn on commenting' : 'Turn off commenting';
+      document.getElementById('ig-txt-pin').innerText = item.pinned ? 'Unpin from main grid' : 'Pin to your main grid';
+    }
+    document.getElementById('pro-ig-action-modal').style.display = 'flex';
   }
+}
 
-  document.getElementById('pro-ig-action-modal').style.display = 'flex';
+function closeAllActionMenus() {
+  document.getElementById('pro-ig-action-modal').style.display = 'none';
+  document.getElementById('pro-reel-public-menu-modal').style.display = 'none';
 }
 
 function closeItemActionMenu() {
-  document.getElementById('pro-ig-action-modal').style.display = 'none';
+  closeAllActionMenus();
+}
+
+function toggleReelAutoScroll() {
+  autoScrollReelsEnabled = !autoScrollReelsEnabled;
+  const sw = document.getElementById('auto-scroll-switch');
+  const knob = document.getElementById('auto-scroll-knob');
+  if (sw && knob) {
+    sw.style.background = autoScrollReelsEnabled ? '#2563eb' : '#cbd5e1';
+    knob.style.left = autoScrollReelsEnabled ? '22px' : '2px';
+  }
+  showToast(autoScrollReelsEnabled ? '🔄 Auto Scroll चालू केले! रील संपताच पुढची रील आपोआप येईल.' : '⏸️ Auto Scroll बंद केले.');
+}
+
+function handlePublicReelAction(act) {
+  closeAllActionMenus();
+  if (act === 'save') showToast('🔖 ही रील तुमच्या Saved मध्ये जतन केली!');
+  else if (act === 'remix') openCreateContentModal('Reel');
+  else if (act === 'sequence') openCreateContentModal('Reel');
+  else if (act === 'fullscreen') {
+    if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+    showToast('📺 Fullscreen मोड चालू!');
+  } else if (act === 'why') alert('ℹ️ तुम्ही ALBIZNET कम्युनिटीमध्ये जोडलेले असल्यामुळे ही लोकप्रिय पोस्ट तुम्हाला दिसत आहे.');
+  else if (act === 'interested') showToast('👁️ धन्यवाद! तुम्हाला अशाच अजून रील्स दाखवल्या जातील.');
+  else if (act === 'not_interested') {
+    closeScrollableFeedModal();
+    showToast('🙈 ही रील लपवली गेली.');
+  } else if (act === 'report') showToast('🚨 तुमचा रिपोर्ट सबमिट झाला आहे.');
+  else if (act === 'preferences') showToast('⚙️ कंटेंट प्रेफरन्सेस अपडेट झाले!');
 }
 
 async function handleIGMenuAction(action) {
@@ -908,64 +1067,54 @@ async function handleIGMenuAction(action) {
 
   const arr = getCacheArrayByCol(col);
   const item = arr.find(x => x.id === id);
-  if (!item) return closeItemActionMenu();
+  if (!item) return closeAllActionMenus();
 
   try {
     if (action === 'delete') {
-      if (!confirm('🗑️ तुम्हाला खात्री आहे की ही पोस्ट/रील/स्टोरी कायमची डिलीट करायची आहे?')) return;
+      if (!confirm('🗑️ तुम्हाला खात्री आहे की हे कायमचे डिलीट करायचे आहे?')) return;
       await db.collection(col).doc(id).delete();
-      closeItemActionMenu();
+      closeAllActionMenus();
       closeScrollableFeedModal();
       showToast('🗑️ यशस्वीरित्या कायमचे Delete केले!');
     } else if (action === 'archive') {
       const newVal = !item.archived;
       await db.collection(col).doc(id).update({ archived: newVal });
-      closeItemActionMenu();
-      showToast(newVal ? '📦 Archived! (प्रोफाईलच्या Archived टॅबमध्ये दिसेल)' : '✨ Unarchived! पुन्हा मुख्य प्रोफाईलवर जोडले.');
+      closeAllActionMenus();
+      showToast(newVal ? '📦 Archived! (Archived टॅबमध्ये दिसेल)' : '✨ Unarchived!');
     } else if (action === 'removeGrid') {
       const newVal = !item.hiddenFromGrid;
       await db.collection(col).doc(id).update({ hiddenFromGrid: newVal });
-      closeItemActionMenu();
-      showToast(newVal ? '🙈 मुख्य ग्रिडवरून लपवले (Hidden from main grid)!' : '👁️ पुन्हा ग्रिडवर दाखवले!');
+      closeAllActionMenus();
+      showToast(newVal ? '🙈 मुख्य ग्रिडवरून लपवले!' : '👁️ पुन्हा ग्रिडवर दाखवले!');
     } else if (action === 'pin') {
       const newVal = !item.pinned;
       await db.collection(col).doc(id).update({ pinned: newVal });
-      closeItemActionMenu();
-      showToast(newVal ? '📌 तुमच्या प्रोफाईलवर सर्वात वर Pin केले!' : '📌 Unpinned!');
+      closeAllActionMenus();
+      showToast(newVal ? '📌 प्रोफाईलवर सर्वात वर Pin केले!' : '📌 Unpinned!');
     } else if (action === 'hideLikes') {
       const newVal = !item.hideLikes;
       await db.collection(col).doc(id).update({ hideLikes: newVal });
-      closeItemActionMenu();
+      closeAllActionMenus();
       showToast(newVal ? '❤️ Like संख्या इतरांसाठी लपवली!' : '❤️ Like संख्या आता दिसेल!');
     } else if (action === 'turnOffComments') {
       const newVal = !item.commentsOff;
       await db.collection(col).doc(id).update({ commentsOff: newVal });
-      closeItemActionMenu();
-      showToast(newVal ? '🔇 या पोस्टसाठी कमेंट्स बंद केल्या!' : '💬 कमेंट्स पुन्हा चालू केल्या!');
+      closeAllActionMenus();
+      showToast(newVal ? '🔇 कमेंट्स बंद केल्या!' : '💬 कमेंट्स पुन्हा चालू केल्या!');
     } else if (action === 'edit') {
-      closeItemActionMenu();
+      closeAllActionMenus();
       const field = col === 'offers' ? 'deal' : (col === 'products' ? 'title' : (col === 'notes' ? 'noteText' : 'caption'));
-      const currentTxt = item[field] || '';
-      const updated = prompt('✏️ नवीन कॅप्शन / माहिती लिहा:', currentTxt);
+      const updated = prompt('✏️ नवीन कॅप्शन / माहिती लिहा:', item[field] || '');
       if (updated !== null) {
         await db.collection(col).doc(id).update({ [field]: updated.trim() });
         showToast('✅ माहिती अपडेट झाली!');
       }
-    } else if (action === 'save') {
-      closeItemActionMenu();
-      showToast('🔖 तुमच्या Saved कलेक्शनमध्ये सेव्ह केले!');
-    } else if (action === 'remix') {
-      closeItemActionMenu();
-      openCreateContentModal('Reel');
-    } else if (action === 'qr') {
-      closeItemActionMenu();
-      showToast('📱 QR Code लिंक कॉपी झाली!');
     } else if (action === 'insights') {
-      closeItemActionMenu();
-      alert(`📊 Post Insights:\n\n👁️ Views: ${item.views || 18}\n❤️ Likes: ${item.likes || 0}\n💬 Comments: ${item.commentsCount || 0}`);
+      closeAllActionMenus();
+      alert(`📊 Post Insights:\n\n👁️ Views: ${item.views || 12}\n❤️ Likes: ${item.likes || 0}\n💬 Comments: ${item.commentsCount || 0}`);
     } else {
-      closeItemActionMenu();
-      showToast('✅ सेटिंग अपडेट झाली!');
+      closeAllActionMenus();
+      showToast('✅ सेव्ह केले!');
     }
   } catch (err) {
     showToast('❌ Error: ' + err.message);
@@ -978,9 +1127,7 @@ async function handleIGMenuAction(action) {
 function openCommentsModal(itemId, colName = 'posts') {
   const arr = getCacheArrayByCol(colName);
   const item = arr.find(x => x.id === itemId);
-  if (item && item.commentsOff) {
-    return showToast('🔇 या पोस्टवर कमेंट्स बंद ठेवल्या आहेत.');
-  }
+  if (item && item.commentsOff) return showToast('🔇 या पोस्टवर कमेंट्स बंद ठेवल्या आहेत.');
   activeCommentPostId = itemId;
   activeCommentCollection = colName;
   document.getElementById('pro-comments-modal').style.display = 'flex';
@@ -1004,7 +1151,7 @@ function renderCommentsList(itemId) {
     return;
   }
 
-  listBox.innerHTML = comments.map((c, idx) => `
+  listBox.innerHTML = comments.map(c => `
     <div style="display:flex; gap:10px; margin-bottom:14px; align-items:flex-start;">
       <img src="${c.avatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=100&q=80'}" style="width:34px; height:34px; border-radius:50%; object-fit:cover;">
       <div style="flex:1; background:#f8fafc; padding:9px 12px; border-radius:14px;">
@@ -1043,6 +1190,18 @@ async function submitRealComment() {
     commentsCount: currentList.length
   });
 
+  if (item && item.uid && item.uid !== currentUserData.uid) {
+    await pushRealNotification({
+      targetUid: item.uid,
+      type: 'comment',
+      actorUid: currentUserData.uid,
+      actorName: currentUserData.name,
+      actorHandle: currentUserData.handle || '@user',
+      actorAvatar: currentUserData.avatar,
+      text: `commented: "${txt}"`
+    });
+  }
+
   renderCommentsList(activeCommentPostId);
 }
 
@@ -1059,11 +1218,12 @@ async function shareRealPost(postId, caption) {
 }
 
 // =========================================================
-// 3. PUBLISH REAL CONTENT
+// 3. PUBLISH REAL CONTENT (WITH VIDEO SIZE CHECK SO ALL DEVICES SEE IT!)
 // =========================================================
 function toggleCreatePopupMenu(e) {
-  e.stopPropagation();
+  if (e) e.stopPropagation();
   let menu = document.getElementById('create-dropdown-menu');
+  if (!menu) return;
   menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
 }
 
@@ -1105,11 +1265,16 @@ function handleFileSelect(e) {
   let file = e.target.files[0];
 
   if (file.type.startsWith('video/')) {
+    if (file.size > 750 * 1024) {
+      alert('⚠️ महत्त्वाची सूचना: हा व्हिडिओ खूप मोठा आहे. सर्व मोबाईलवर फास्ट दिसण्यासाठी कृपया ७०० KB पेक्षा लहान (५-१० सेकंदांचा) व्हिडिओ निवडा!');
+      e.target.value = '';
+      return;
+    }
     let reader = new FileReader();
     reader.onload = function(evt) {
       uploadedDataURL = evt.target.result;
       uploadedMediaType = 'video';
-      showToast('🎬 व्हिडिओ निवडला गेला!');
+      showToast('🎬 व्हिडिओ अपलोडसाठी तयार आहे!');
     };
     reader.readAsDataURL(file);
   } else {
@@ -1118,13 +1283,13 @@ function handleFileSelect(e) {
       let img = new Image();
       img.onload = function() {
         let canvas = document.createElement('canvas');
-        let maxW = 720;
+        let maxW = 700;
         let scale = maxW / img.width;
         canvas.width = img.width > maxW ? maxW : img.width;
         canvas.height = img.width > maxW ? img.height * scale : img.height;
         let ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        uploadedDataURL = canvas.toDataURL('image/jpeg', 0.75);
+        uploadedDataURL = canvas.toDataURL('image/jpeg', 0.72);
         uploadedMediaType = 'image';
         showToast('✅ फोटो निवडला गेला!');
       };
@@ -1155,6 +1320,7 @@ async function publishCreatedContent() {
       await db.collection('reels').add({
         uid: currentUserData.uid,
         author: currentUserData.name,
+        avatar: currentUserData.avatar,
         caption: title || currentCreateMode,
         img: mediaUrl,
         mediaType: uploadedMediaType,
@@ -1230,34 +1396,56 @@ async function publishCreatedContent() {
     }
 
     closeCreateContentModal();
-    showToast(`✅ तुमची ${currentCreateMode} यशस्वीरित्या पब्लिश झाली!`);
+    showToast(`✅ तुमची ${currentCreateMode} सर्व मोबाईल्सवर लाईव्ह पब्लिश झाली!`);
   } catch (err) {
-    showToast('❌ Error: ' + err.message);
+    showToast('❌ साईझ खूप मोठी आहे, कृपया लहान फोटो/व्हिडिओ निवडा.');
   }
 }
 
 // =========================================================
-// 4. REAL MESSENGER CHAT (CAMERA, GALLERY, VOICE RECORDING & DELETE)
+// 4. STRICT REAL USER-TO-USER MESSENGER (NO FAKE AUTO MESSAGES!)
 // =========================================================
-function renderNotesBarInMessages() {
+function renderMessagesPeopleBar() {
   const bar = document.querySelector('#view-messages .moments-scroll-bar');
-  if (!bar) return;
+  if (!bar || !currentUserData) return;
   const firstNote = bar.querySelector('.your-note-card').outerHTML;
-  const visibleNotes = cacheNotes.filter(n => !n.archived);
-  bar.innerHTML = firstNote + visibleNotes.map(n => `
-    <div class="story-circle-item" onclick="openScrollableMediaFeed('notes', '${n.id}', 'Notes')">
-      <div class="story-grad-ring"><img src="${n.avatar || n.img}"></div>
-      <span>${(n.noteText || 'Note').substring(0, 10)}..</span>
+
+  // अ‍ॅपमधील इतर सर्व खरे रजिस्टर केलेले युजर्स वरच्या सर्कल बारमध्ये दाखवा (टच करताच त्यांच्याशी डायरेक्ट चॅट सुरू होईल!)
+  const otherUsers = cacheAllUsers.filter(u => u.uid !== currentUserData.uid);
+  const usersHTML = otherUsers.map(u => `
+    <div class="story-circle-item" onclick="startRealChat('${u.uid}', '${(u.name || 'User').replace(/'/g, '')}', 'Inbox', '${u.avatar || ''}')">
+      <div class="story-grad-ring"><img src="${u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'U')}`}"></div>
+      <span>${(u.name || 'User').split(' ')[0]}</span>
     </div>
   `).join('');
+
+  bar.innerHTML = firstNote + usersHTML;
 }
 
 function listenToRealMessages() {
   db.collection('chats').onSnapshot(snap => {
-    cacheChats = sortByPinnedAndCreatedDesc(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    if (!currentUserData) return;
+    const myUid = currentUserData.uid;
+
+    // फक्त तेच चॅट्स दाखवा ज्यात सध्याचा युजर (myUid) सहभागी आहे! (इतरांचे चॅट कधीच दिसणार नाहीत!)
+    const myChats = [];
+    snap.docs.forEach(doc => {
+      const data = doc.data();
+      const parts = Array.isArray(data.participants) ? data.participants : [];
+      if (parts.includes(myUid) || data.senderUid === myUid || data.receiverUid === myUid) {
+        // जुने फेक मेसेजेस ("Gallery Image", "Voice Note (0:05)") आपोआप फिल्टर करा
+        if (Array.isArray(data.messages)) {
+          data.messages = data.messages.filter(m => m.text !== '🖼️ Gallery Image' && m.text !== '🎤 Voice Note (0:05)' && m.text !== '📷 Photo');
+        }
+        myChats.push({ id: doc.id, ...data });
+      }
+    });
+
+    cacheChats = sortByPinnedAndCreatedDesc(myChats);
     renderMessagesList();
 
-    let unreadCount = cacheChats.filter(c => c.unread === true).length;
+    // फक्त दुसऱ्या व्यक्तीने मला पाठवलेले Unread मेसेजेस मोजा
+    let unreadCount = cacheChats.filter(c => c.unread === true && c.lastSenderUid !== myUid).length;
     let badge = document.querySelector('.msg-badge-count');
     if (badge) {
       badge.innerText = unreadCount;
@@ -1280,8 +1468,9 @@ function switchMsgTab(tabName, el) {
 
 function renderMessagesList() {
   let box = document.getElementById('messages-chat-list');
-  if (!box) return;
+  if (!box || !currentUserData) return;
   let q = (document.getElementById('msg-search-input')?.value || '').toLowerCase();
+  const myUid = currentUserData.uid;
 
   let list = cacheChats.filter(m => {
     let matchQ = (m.senderName || '').toLowerCase().includes(q) ||
@@ -1290,53 +1479,72 @@ function renderMessagesList() {
     if (!matchQ) return false;
 
     const cat = m.chatCategory || 'Inbox';
-    if (activeMsgTab === 'Unread') return m.unread === true;
+    if (activeMsgTab === 'Unread') return m.unread === true && m.lastSenderUid !== myUid;
     if (activeMsgTab === 'Marketplace') return cat === 'Marketplace';
     if (activeMsgTab === 'Request') return cat === 'Request' || m.isRequest === true;
     return cat !== 'Request';
   });
 
   if (list.length === 0) {
+    // खाली इतर सर्व रजिस्टर युजर्सची यादी दाखवा जेणेकरून एका क्लिकवर खऱ्या युजरला मेसेज पाठवता येईल!
+    const otherUsers = cacheAllUsers.filter(u => u.uid !== myUid);
     box.innerHTML = `
-      <div style="text-align:center; padding:32px 16px; color:#64748b;">
-        <b>${activeMsgTab}</b> मध्ये सध्या कोणताही मेसेज नाही.<br><br>
-        <button onclick="createNewChatInCurrentTab()" style="background:#4f46e5; color:#fff; border:none; padding:10px 18px; border-radius:12px; font-weight:700; cursor:pointer;">💬 नवीन मेसेज सुरू करा</button>
-      </div>`;
+      <div style="text-align:center; padding:20px 16px; color:#64748b;">
+        तुमच्या <b>${activeMsgTab}</b> मध्ये अजून कोणतेही संभाषण नाही.<br>खालील युजर्सवर टॅप करून लगेच रिअल चॅट सुरू करा:
+      </div>
+      <div style="padding:0 12px;">
+        ${otherUsers.map(u => `
+          <div onclick="startRealChat('${u.uid}', '${(u.name || 'User').replace(/'/g, '')}', '${activeMsgTab === 'Marketplace' ? 'Marketplace' : 'Inbox'}', '${u.avatar || ''}')" style="display:flex; align-items:center; gap:12px; padding:10px 14px; margin-bottom:8px; background:#fff; border-radius:14px; box-shadow:0 2px 6px rgba(0,0,0,0.04); cursor:pointer;">
+            <img src="${u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'U')}`}" style="width:44px; height:44px; border-radius:50%; object-fit:cover;">
+            <div style="flex:1;">
+              <div style="font-weight:800; font-size:14.5px; color:#0f172a;">${u.name}</div>
+              <div style="font-size:12px; color:#64748b;">${u.handle || '@user'} &bull; ${u.location || 'Maharashtra'}</div>
+            </div>
+            <button style="background:#2563eb; color:#fff; border:none; padding:7px 14px; border-radius:10px; font-weight:700; font-size:12px; cursor:pointer;">Message 💬</button>
+          </div>
+        `).join('')}
+      </div>
+    `;
     return;
   }
 
   box.innerHTML = list.map(m => {
-    let isMeSender = currentUserData && m.senderUid === currentUserData.uid;
+    let isMeSender = m.senderUid === myUid;
     let peerName = isMeSender ? (m.receiverName || 'Friend') : (m.senderName || 'User');
-    let peerAvatar = m.peerAvatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80';
-    let peerUid = isMeSender ? (m.receiverUid || m.senderUid) : (m.senderUid || '');
+    let peerUid = isMeSender ? (m.receiverUid || '') : (m.senderUid || '');
+    let peerObj = cacheAllUsers.find(u => u.uid === peerUid);
+    let peerAvatar = (peerObj && peerObj.avatar) ? peerObj.avatar : (isMeSender ? m.receiverAvatar : m.senderAvatar) || `https://ui-avatars.com/api/?name=${encodeURIComponent(peerName)}&background=2563eb&color=fff`;
+    let isUnreadForMe = m.unread === true && m.lastSenderUid !== myUid;
 
     return `
       <div class="chat-item-row" onclick="openMessengerWindow('${m.id}', '${peerName.replace(/'/g, '')}', '${peerAvatar}', '${peerUid}')" style="display:flex; align-items:center; gap:12px; padding:12px 14px; margin:8px 12px; border-radius:16px; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.04); cursor:pointer;">
-        <img src="${peerAvatar}" style="width:48px; height:48px; border-radius:50%; object-fit:cover;">
-        <div style="flex:1; min-width:0;">
-          <div style="font-weight:${m.unread ? '900' : '700'}; font-size:15px; color:#0f172a;">${peerName}</div>
-          <div style="font-size:13px; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${m.lastMessage || 'Tap to chat'}</div>
+        <div style="position:relative;">
+          <img src="${peerAvatar}" style="width:48px; height:48px; border-radius:50%; object-fit:cover;">
+          ${isUnreadForMe ? `<span style="position:absolute; top:0; right:0; width:12px; height:12px; background:#2563eb; border:2px solid #fff; border-radius:50%;"></span>` : ''}
         </div>
-        <button onclick="event.stopPropagation(); deleteChatFromList('${m.id}')" style="background:#fef2f2; color:#ef4444; border:none; width:34px; height:34px; border-radius:50%; cursor:pointer;" title="Delete Chat"><i class="fa-regular fa-trash-can"></i></button>
+        <div style="flex:1; min-width:0;">
+          <div style="font-weight:${isUnreadForMe ? '900' : '700'}; font-size:15px; color:#0f172a;">${peerName}</div>
+          <div style="font-size:13px; color:${isUnreadForMe ? '#0f172a' : '#64748b'}; font-weight:${isUnreadForMe ? '700' : '400'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${m.lastMessage || 'Tap to chat'}</div>
+        </div>
+        <button onclick="event.stopPropagation(); deleteChatFromList('${m.id}')" style="background:#fef2f2; color:#ef4444; border:none; width:34px; height:34px; border-radius:50%; cursor:pointer;"><i class="fa-regular fa-trash-can"></i></button>
       </div>
     `;
   }).join('');
 }
 
 async function deleteChatFromList(chatId) {
-  if (!confirm('🗑️ हे संपूर्ण चॅट डिलीट करायचे का?')) return;
+  if (!confirm('🗑️ हे संभाषण डिलीट करायचे का?')) return;
   await db.collection('chats').doc(chatId).delete();
   showToast('🗑️ चॅट डिलीट केले गेले!');
 }
 
 async function deleteEntireActiveChat() {
   if (!activeChatDocId) return;
-  if (!confirm('🗑️ तुम्हाला हे संपूर्ण चॅट कायमचे डिलीट करायचे आहे का?')) return;
+  if (!confirm('🗑️ हे संपूर्ण चॅट कायमचे डिलीट करायचे आहे का?')) return;
   const idToDel = activeChatDocId;
   closeMessengerChat();
   await db.collection('chats').doc(idToDel).delete();
-  showToast('🗑️ चॅट यशस्वीरित्या डिलीट केले!');
+  showToast('🗑️ चॅट डिलीट केले!');
 }
 
 async function deleteSingleMessageBubble(msgIndex) {
@@ -1346,7 +1554,7 @@ async function deleteSingleMessageBubble(msgIndex) {
   if (!chatDoc || !Array.isArray(chatDoc.messages)) return;
 
   const updated = chatDoc.messages.filter((_, idx) => idx !== msgIndex);
-  const lastMsg = updated.length > 0 ? updated[updated.length - 1].text : 'Message deleted';
+  const lastMsg = updated.length > 0 ? updated[updated.length - 1].text : 'No messages yet';
   await db.collection('chats').doc(activeChatDocId).update({
     messages: updated,
     lastMessage: lastMsg
@@ -1354,45 +1562,41 @@ async function deleteSingleMessageBubble(msgIndex) {
   showToast('🗑️ मेसेज डिलीट केला!');
 }
 
-async function createNewChatInCurrentTab() {
-  let cat = (activeMsgTab === 'Marketplace' || activeMsgTab === 'Request') ? activeMsgTab : 'Inbox';
-  await startRealChat('community_peer', cat === 'Marketplace' ? 'Royal Fashion Store' : 'Ashu Ashu', cat);
-}
-
-async function startRealChat(peerUid, peerName, categoryOverride) {
+// कोणत्याही युजरसोबत थेट रिकामी चॅट विंडो उघडा (कोणताही ऑटोमॅटिक "Hi" मेसेज जाणार नाही!)
+async function startRealChat(peerUid, peerName, categoryOverride, peerAvOverride) {
   if (!currentUserData) return showToast('⚠️ कृपया आधी लॉगिन करा!');
+  if (peerUid === currentUserData.uid) return showToast('ℹ️ तुम्ही स्वतःलाच मेसेज करू शकत नाही!');
+
+  const myUid = currentUserData.uid;
   const chatCat = categoryOverride || (activeMsgTab === 'Marketplace' ? 'Marketplace' : 'Inbox');
 
-  let existing = cacheChats.find(c =>
-    (c.receiverName === peerName || c.senderName === peerName) &&
-    (c.chatCategory || 'Inbox') === chatCat
-  );
+  // दोघांमधील आधीचे चॅट शोधा
+  let existing = cacheChats.find(c => {
+    const parts = Array.isArray(c.participants) ? c.participants : [];
+    return parts.includes(myUid) && parts.includes(peerUid);
+  });
 
-  let peerAvatar = 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80';
+  let peerObj = cacheAllUsers.find(u => u.uid === peerUid);
+  let peerAvatar = peerAvOverride || (peerObj && peerObj.avatar) || `https://ui-avatars.com/api/?name=${encodeURIComponent(peerName || 'U')}&background=2563eb&color=fff`;
 
   if (existing) {
-    openMessengerWindow(existing.id, peerName, existing.peerAvatar || peerAvatar, peerUid);
+    openMessengerWindow(existing.id, peerName, peerAvatar, peerUid);
   } else {
+    // नवीन चॅट डॉक्युमेंट बनवा पण messages: [] रिकामा ठेवा (म्हणजे ऑटोमॅटिक मेसेज जाणार नाही!)
     const newDoc = await db.collection('chats').add({
-      participants: [currentUserData.uid, peerUid || 'peer'],
-      senderUid: currentUserData.uid,
-      receiverUid: peerUid || 'peer',
+      participants: [myUid, peerUid],
+      senderUid: myUid,
+      receiverUid: peerUid,
       senderName: currentUserData.name,
+      senderAvatar: currentUserData.avatar,
       receiverName: peerName || 'Friend',
-      peerAvatar: peerAvatar,
+      receiverAvatar: peerAvatar,
       chatCategory: chatCat,
       isRequest: chatCat === 'Request',
       unread: false,
-      lastMessage: `${currentUserData.name}: 👋 Hi`,
-      messages: [
-        {
-          senderUid: currentUserData.uid,
-          senderName: currentUserData.name,
-          text: '👋 Hi',
-          type: 'text',
-          timeMs: Date.now()
-        }
-      ],
+      lastSenderUid: '',
+      lastMessage: 'Start a conversation...',
+      messages: [],
       timeMs: Date.now(),
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
     });
@@ -1403,7 +1607,7 @@ async function startRealChat(peerUid, peerName, categoryOverride) {
 async function openMessengerWindow(chatId, peerName, peerAvatar, peerUid) {
   activeChatDocId = chatId;
   activeChatPeerName = peerName || 'User';
-  activeChatPeerAvatar = peerAvatar || 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80';
+  activeChatPeerAvatar = peerAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(activeChatPeerName)}&background=2563eb&color=fff`;
   activeChatPeerUid = peerUid || '';
 
   document.getElementById('msg-win-top-name').innerText = activeChatPeerName;
@@ -1416,7 +1620,7 @@ async function openMessengerWindow(chatId, peerName, peerAvatar, peerUid) {
   const chatDoc = cacheChats.find(x => x.id === chatId);
   if (chatDoc) {
     renderMessengerBubbles(chatDoc);
-    if (chatDoc.unread) {
+    if (chatDoc.unread && chatDoc.lastSenderUid !== (currentUserData && currentUserData.uid)) {
       db.collection('chats').doc(chatId).update({ unread: false }).catch(() => {});
     }
   }
@@ -1434,8 +1638,13 @@ function renderMessengerBubbles(chatDoc) {
   const msgs = Array.isArray(chatDoc.messages) ? chatDoc.messages : [];
   const myUid = currentUserData ? currentUserData.uid : '';
 
+  if (msgs.length === 0) {
+    box.innerHTML = `<div style="text-align:center; padding:18px; color:#94a3b8; font-size:13px;">खाली मेसेज टाईप करा, किंवा फोटो/व्हॉइस नोट पाठवा 👋</div>`;
+    return;
+  }
+
   box.innerHTML = msgs.map((m, idx) => {
-    const isMe = m.senderUid === myUid || m.senderName === (currentUserData && currentUserData.name);
+    const isMe = m.senderUid === myUid;
     const isThumb = m.type === 'thumb' || m.text === '👍';
     const isImage = m.type === 'image' && m.mediaUrl;
     const isVideo = m.type === 'video' && m.mediaUrl;
@@ -1445,7 +1654,7 @@ function renderMessengerBubbles(chatDoc) {
     if (isThumb) {
       contentHTML = `<div style="font-size:40px; line-height:1; color:#2563eb; cursor:pointer;" onclick="deleteSingleMessageBubble(${idx})"><i class="fa-solid fa-thumbs-up"></i></div>`;
     } else if (isImage) {
-      contentHTML = `<img src="${m.mediaUrl}" onclick="deleteSingleMessageBubble(${idx})" style="max-width:210px; border-radius:14px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.1);">`;
+      contentHTML = `<img src="${m.mediaUrl}" onclick="deleteSingleMessageBubble(${idx})" style="max-width:210px; border-radius:14px; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.12);">`;
     } else if (isVideo) {
       contentHTML = `<video src="${m.mediaUrl}" controls playsinline style="max-width:220px; border-radius:14px; background:#000;"></video>`;
     } else if (isAudio) {
@@ -1487,21 +1696,15 @@ async function sendMessengerThumb() {
   await appendMessageToActiveChat('👍', 'thumb', '');
 }
 
-// खरा कॅमेरा आणि गॅलरी फोटो/व्हिडिओ अपलोड
-function triggerChatCamera() {
-  document.getElementById('chat-camera-input').click();
-}
-function triggerChatGallery() {
-  document.getElementById('chat-gallery-input').click();
-}
-
-function handleChatMediaUpload(e, source) {
+function handleChatMediaUpload(e) {
   if (!e.target.files || !e.target.files[0] || !activeChatDocId) return;
   const file = e.target.files[0];
 
   if (file.type.startsWith('video/')) {
+    if (file.size > 700 * 1024) return showToast('⚠️ कृपया ७०० KB पेक्षा लहान व्हिडिओ पाठवा!');
     const reader = new FileReader();
     reader.onload = async (evt) => {
+      showToast('📤 व्हिडिओ पाठवला जात आहे...');
       await appendMessageToActiveChat('🎬 Video', 'video', evt.target.result);
     };
     reader.readAsDataURL(file);
@@ -1511,12 +1714,13 @@ function handleChatMediaUpload(e, source) {
       const img = new Image();
       img.onload = async () => {
         const canvas = document.createElement('canvas');
-        const maxW = 600;
+        const maxW = 550;
         const scale = maxW / img.width;
         canvas.width = img.width > maxW ? maxW : img.width;
         canvas.height = img.width > maxW ? img.height * scale : img.height;
         canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-        const compressed = canvas.toDataURL('image/jpeg', 0.72);
+        const compressed = canvas.toDataURL('image/jpeg', 0.7);
+        showToast('📤 फोटो पाठवला जात आहे...');
         await appendMessageToActiveChat('📷 Photo', 'image', compressed);
       };
       img.src = evt.target.result;
@@ -1526,7 +1730,6 @@ function handleChatMediaUpload(e, source) {
   e.target.value = '';
 }
 
-// खरा व्हॉइस रेकॉर्डर (Real Microphone Audio Recorder)
 async function toggleRealVoiceRecording() {
   if (!activeChatDocId) return;
   const recBar = document.getElementById('voice-rec-bar');
@@ -1550,7 +1753,8 @@ async function toggleRealVoiceRecording() {
       const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
       const reader = new FileReader();
       reader.onloadend = async () => {
-        await appendMessageToActiveChat('🎤 Voice message', 'audio', reader.result);
+        showToast('📤 व्हॉइस नोट पाठवली जात आहे...');
+        await appendMessageToActiveChat('🎤 Voice Note', 'audio', reader.result);
       };
       reader.readAsDataURL(audioBlob);
       stream.getTracks().forEach(t => t.stop());
@@ -1561,7 +1765,7 @@ async function toggleRealVoiceRecording() {
     if (recBar) recBar.style.display = 'flex';
     if (micBtn) micBtn.style.color = '#dc2626';
   } catch (err) {
-    showToast('⚠️ माईक परमिशन मिळाली नाही. कृपया ब्राउझरमध्ये Mic Allow करा!');
+    showToast('⚠️ कृपया ब्राउझरमध्ये Microphone ची परवानगी (Allow) द्या!');
   }
 }
 
@@ -1575,12 +1779,13 @@ function stopAndSendVoiceNote() {
 }
 
 async function appendMessageToActiveChat(textVal, msgType, mediaDataUrl) {
+  if (!currentUserData || !activeChatDocId) return;
   const chatDoc = cacheChats.find(x => x.id === activeChatDocId);
   let arr = (chatDoc && Array.isArray(chatDoc.messages)) ? [...chatDoc.messages] : [];
 
   arr.push({
-    senderUid: currentUserData ? currentUserData.uid : 'user',
-    senderName: currentUserData ? currentUserData.name : 'Me',
+    senderUid: currentUserData.uid,
+    senderName: currentUserData.name,
     text: textVal,
     type: msgType,
     mediaUrl: mediaDataUrl || '',
@@ -1589,25 +1794,41 @@ async function appendMessageToActiveChat(textVal, msgType, mediaDataUrl) {
 
   await db.collection('chats').doc(activeChatDocId).update({
     messages: arr,
-    lastMessage: `${currentUserData ? currentUserData.name : 'User'}: ${textVal}`,
+    lastSenderUid: currentUserData.uid,
+    lastMessage: `${currentUserData.name}: ${textVal}`,
     unread: true,
     timeMs: Date.now(),
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
+
+  // समोरच्या युजरलाच (activeChatPeerUid) रिअल नोटिफिकेशन पाठवा!
+  if (activeChatPeerUid && activeChatPeerUid !== currentUserData.uid) {
+    await pushRealNotification({
+      targetUid: activeChatPeerUid,
+      type: 'message',
+      actorUid: currentUserData.uid,
+      actorName: currentUserData.name,
+      actorHandle: currentUserData.handle || '@' + currentUserData.name.toLowerCase().replace(/\s+/g, ''),
+      actorAvatar: currentUserData.avatar,
+      text: `sent you a message: "${textVal}"`
+    });
+  }
 }
 
 // =========================================================
-// 5. NOTIFICATIONS, EXPLORE & NEARBY
+// 5. STRICT PER-USER NOTIFICATIONS (NO 'undefined' & NO OTHER USER LEAKS)
 // =========================================================
 async function pushRealNotification(payload) {
   try {
+    if (!payload.actorName || !payload.text) return;
     await db.collection('notifications').add({
+      targetUid: payload.targetUid || 'all',
       actorUid: payload.actorUid || (currentUserData ? currentUserData.uid : ''),
-      actorName: payload.actorName || (currentUserData ? currentUserData.name : 'User'),
-      actorHandle: payload.actorHandle || '@user',
-      actorAvatar: payload.actorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
+      actorName: payload.actorName,
+      actorHandle: payload.actorHandle || '@' + payload.actorName.toLowerCase().replace(/\s+/g, ''),
+      actorAvatar: payload.actorAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(payload.actorName)}&background=4f46e5&color=fff`,
       type: payload.type || 'activity',
-      text: payload.text || 'interacted with your post.',
+      text: payload.text,
       postImg: payload.postImg || '',
       timeMs: Date.now(),
       createdAt: firebase.firestore.FieldValue.serverTimestamp()
@@ -1617,7 +1838,23 @@ async function pushRealNotification(payload) {
 
 function listenToRealNotifications() {
   db.collection('notifications').onSnapshot(snap => {
-    cacheNotifications = sortByPinnedAndCreatedDesc(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+    if (!currentUserData) return;
+    const myUid = currentUserData.uid;
+
+    const validNotifs = [];
+    snap.docs.forEach(doc => {
+      const n = doc.data();
+      // जुने खराब ('undefined') नोटिफिकेशन्स वगळा आणि फक्त माझ्यासाठीचेच (targetUid === myUid) दाखवा!
+      if (!n.actorName || !n.text || String(n.text).includes('undefined')) {
+        db.collection('notifications').doc(doc.id).delete().catch(() => {});
+        return;
+      }
+      if (n.targetUid === myUid && n.actorUid !== myUid) {
+        validNotifs.push({ id: doc.id, ...n });
+      }
+    });
+
+    cacheNotifications = sortByPinnedAndCreatedDesc(validNotifs);
     renderProNotificationsList();
   });
 }
@@ -1636,33 +1873,40 @@ function closeProNotifications() {
   document.getElementById('pro-notifications-modal').style.display = 'none';
 }
 
-function markAllNotificationsRead() {
-  const dot = document.querySelector('.bell-dot');
-  if (dot) dot.style.display = 'none';
-  showToast('✅ सर्व नोटिफिकेशन्स वाचले गेले!');
+async function clearMyNotifications() {
+  for (const n of cacheNotifications) {
+    await db.collection('notifications').doc(n.id).delete().catch(() => {});
+  }
+  showToast('🧹 तुमचे सर्व नोटिफिकेशन्स क्लिअर केले!');
 }
 
 function renderProNotificationsList() {
   const body = document.getElementById('pro-notif-list-body');
   if (!body) return;
 
-  const renderRow = (n) => `
-    <div style="display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid #f8fafc;">
-      <img src="${n.actorAvatar}" onclick="closeProNotifications(); openUserProfile('${n.actorUid}')" style="width:46px; height:46px; border-radius:50%; object-fit:cover; cursor:pointer;">
-      <div style="flex:1; font-size:13.5px; color:#0f172a;">
-        <b>${n.actorHandle || n.actorName}</b> ${n.text}
-        <span style="color:#64748b; font-size:12px; margin-left:4px;">${getRelativeTime(n.timeMs)}</span>
-      </div>
-      ${n.postImg ? `<img src="${n.postImg}" style="width:44px; height:44px; border-radius:8px; object-fit:cover;">` : ''}
-    </div>
-  `;
+  if (cacheNotifications.length === 0) {
+    body.innerHTML = `<div style="text-align:center; padding:45px 20px; color:#64748b; font-size:14px;">🔔 तुमच्या अकाउंटसाठी सध्या कोणतेही नवीन नोटिफिकेशन नाही.</div>`;
+    return;
+  }
 
   body.innerHTML = `
     <div style="padding:14px 16px 6px; font-weight:800; font-size:15px;">Featured</div>
-    ${cacheNotifications.length > 0 ? cacheNotifications.map(renderRow).join('') : `<div style="padding:16px; color:#64748b;">सध्या नवीन नोटिफिकेशन नाही.</div>`}
+    ${cacheNotifications.map(n => `
+      <div style="display:flex; align-items:center; gap:12px; padding:12px 16px; border-bottom:1px solid #f8fafc;">
+        <img src="${n.actorAvatar}" onclick="closeProNotifications(); openUserProfile('${n.actorUid}')" style="width:46px; height:46px; border-radius:50%; object-fit:cover; cursor:pointer;">
+        <div style="flex:1; font-size:13.5px; color:#0f172a;">
+          <b onclick="closeProNotifications(); openUserProfile('${n.actorUid}')" style="cursor:pointer;">${n.actorHandle || n.actorName}</b> ${n.text}
+          <span style="color:#64748b; font-size:12px; margin-left:4px;">${getRelativeTime(n.timeMs)}</span>
+        </div>
+        ${n.postImg ? `<img src="${n.postImg}" style="width:44px; height:44px; border-radius:8px; object-fit:cover;">` : ''}
+      </div>
+    `).join('')}
   `;
 }
 
+// =========================================================
+// EXPLORE (TRENDING REELS EXACT CLICK MATCH) & NEARBY
+// =========================================================
 function listenToRealOffers() {
   db.collection('offers').onSnapshot(snap => {
     cacheOffers = sortByPinnedAndCreatedDesc(snap.docs.map(d => ({ id: d.id, _col: 'offers', ...d.data() })));
@@ -1686,27 +1930,39 @@ function renderExploreOffers() {
 
   if (activeExploreFilter === 'Trending Reels') {
     let reelsList = cacheReels.filter(r => !r.archived && ((r.author || '').toLowerCase().includes(q) || (r.caption || '').toLowerCase().includes(q)));
+    window.currentExploreReelsList = reelsList;
+
     box.innerHTML = reelsList.length === 0
       ? `<p style="text-align:center; padding:30px; color:#64748b;">सध्या कोणतीही Trending Reel नाही.</p>`
-      : reelsList.map(r => `
-        <div onclick="openScrollableMediaFeed('reels', '${r.id}', 'Trending Reels')" style="background:#fff; border-radius:14px; padding:12px; margin:10px 14px; display:flex; gap:12px; align-items:center; cursor:pointer;">
-          <div style="width:70px; height:90px; background:#000; border-radius:10px; display:flex; align-items:center; justify-content:center; color:#fff;">▶</div>
-          <div style="flex:1;">
-            <span style="background:#fee2e2; color:#dc2626; font-size:11px; font-weight:800; padding:2px 8px; border-radius:8px;">🎬 Reel &bull; ${r.views || 1} Views</span>
-            <h4 style="margin:6px 0 4px;">${r.caption || 'Reel'}</h4>
-            <div style="font-size:12px; color:#64748b;">By ${r.author}</div>
-          </div>
-        </div>
-      `).join('');
+      : reelsList.map(r => {
+          const isVid = r.mediaType === 'video' || (r.img && r.img.startsWith('data:video'));
+          return `
+            <div onclick="openScrollableMediaFeed('reels', '${r.id}', 'Trending Reels', window.currentExploreReelsList, 'public_reel')" style="background:#fff; border-radius:16px; padding:12px; margin:10px 14px; display:flex; gap:14px; align-items:center; box-shadow:0 2px 8px rgba(0,0,0,0.05); cursor:pointer;">
+              <div style="width:74px; height:96px; background:#0f172a; border-radius:12px; overflow:hidden; position:relative; flex-shrink:0;">
+                ${isVid
+                  ? `<video src="${r.img}#t=0.1" style="width:100%; height:100%; object-fit:cover;" muted playsinline preload="metadata"></video>`
+                  : `<img src="${r.img}" style="width:100%; height:100%; object-fit:cover;">`
+                }
+                <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.3); color:#fff; font-size:18px;">▶</div>
+              </div>
+              <div style="flex:1;">
+                <span style="background:#fee2e2; color:#dc2626; font-size:11px; font-weight:800; padding:3px 9px; border-radius:8px;">🎬 Reel &bull; ${r.views || 1} Views</span>
+                <h4 style="margin:8px 0 4px; font-size:16px; color:#0f172a;">${r.caption || 'Reel'}</h4>
+                <div style="font-size:12.5px; color:#64748b;">By ${r.author}</div>
+              </div>
+              <button onclick="event.stopPropagation(); openItemActionMenu('${r.id}', 'reels', 'public_reel')" style="background:#f8fafc; border:none; width:34px; height:34px; border-radius:50%; color:#334155; font-size:16px; cursor:pointer;"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+            </div>
+          `;
+        }).join('');
     return;
   }
 
   let filteredOffers = cacheOffers.filter(o => !o.archived && ((o.deal || '').toLowerCase().includes(q) || (o.bizName || '').toLowerCase().includes(q)));
   box.innerHTML = filteredOffers.length === 0
-    ? `<p style="text-align:center; padding:30px; color:#64748b;">सध्या कोणतीही ऑफर नाही.</p>`
+    ? `<p style="text-align:center; padding:30px; color:#64748b;">सध्या कोणतीही ऑफर नाही. '+ Create ➔ Offer' मधून नवीन ऑफर टाका!</p>`
     : filteredOffers.map(o => `
       <div class="offer-banner-card" style="background:#fff; border-radius:16px; overflow:hidden; margin:12px 14px; box-shadow:0 2px 10px rgba(0,0,0,0.06);">
-        <div onclick="openScrollableMediaFeed('offers', '${o.id}', 'Offers')" style="background-image:url('${o.img}'); height:145px; background-size:cover; background-position:center; position:relative; padding:14px; display:flex; align-items:flex-end; color:#fff; cursor:pointer;">
+        <div onclick="openScrollableMediaFeed('offers', '${o.id}', 'Offers', null, 'public_reel')" style="background-image:url('${o.img}'); height:145px; background-size:cover; background-position:center; position:relative; padding:14px; display:flex; align-items:flex-end; color:#fff; cursor:pointer;">
           <div style="position:absolute; inset:0; background:linear-gradient(transparent, rgba(0,0,0,0.8));"></div>
           <div style="position:relative; z-index:1;">
             <div style="font-size:13px; font-weight:700; color:#38bdf8;">${o.bizName}</div>
@@ -1715,13 +1971,6 @@ function renderExploreOffers() {
         </div>
       </div>
     `).join('');
-}
-
-function listenToRealNearbyStores() {
-  db.collection('users').where('type', '==', 'business').onSnapshot(snap => {
-    cacheBusinesses = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-    renderNearbyStores();
-  });
 }
 
 function filterNearbyCat(catName, el) {
@@ -1744,7 +1993,7 @@ function renderNearbyStores() {
           <div onclick="openUserProfile('${s.uid}')" style="font-weight:800; font-size:15.5px; cursor:pointer;">${s.name}</div>
           <div style="font-size:12px; color:#4f46e5; font-weight:700;">${s.category || 'Shops'} &bull; 📍 ${s.location}</div>
           <div style="display:flex; gap:8px; margin-top:8px;">
-            <button onclick="startRealChat('${s.uid}', '${s.name}', 'Marketplace')" style="background:#2563eb; color:#fff; border:none; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700;">💬 Message</button>
+            <button onclick="startRealChat('${s.uid}', '${(s.name || 'Store').replace(/'/g, '')}', 'Marketplace', '${s.avatar || ''}')" style="background:#2563eb; color:#fff; border:none; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">💬 Message</button>
           </div>
         </div>
       </div>
@@ -1752,7 +2001,7 @@ function renderNearbyStores() {
 }
 
 // =========================================================
-// 6. PEOPLE & BUSINESS PROFILE GRIDS (WITH SCROLLABLE FEED & 3-DOT MENU)
+// 6. PROFILE GRIDS (USES PROFILE OWNER MENU: ARCHIVE, HIDE, PIN, EDIT, DELETE)
 // =========================================================
 async function openUserProfile(targetUid) {
   if (!targetUid) return;
@@ -1775,6 +2024,12 @@ function loadProfileView() {
 }
 
 async function renderProfileData(u) {
+  // प्रोफाईलवरील Message बटण थेट त्या युजरच्या चॅटला जोडा
+  const msgBtn = document.querySelector('#people-profile-box .prof-light-btn');
+  if (msgBtn) {
+    msgBtn.onclick = () => startRealChat(u.uid, u.name, 'Inbox', u.avatar);
+  }
+
   if (u.type === 'business') {
     document.getElementById('people-profile-box').style.display = 'none';
     document.getElementById('business-profile-box').style.display = 'block';
@@ -1807,11 +2062,12 @@ function switchPeopleMediaTab(tabName, el) {
   renderProfileMediaGrid();
 }
 
-// प्रोफाईलमधील प्रत्येक फोटो/व्हिडिओवर `⋮` आयकॉन आणि टच केल्यावर Vertical Scrollable Feed!
 function renderProfileMediaGrid() {
   let grid = document.getElementById('people-media-grid');
   if (!grid) return;
   let targetUid = activeProfileUser ? activeProfileUser.uid : (currentUserData ? currentUserData.uid : '');
+  let isMyOwnProfile = currentUserData && targetUid === currentUserData.uid;
+  let menuCtx = isMyOwnProfile ? 'profile_owner' : 'public_reel';
 
   let allUserItems = [
     ...cachePosts.filter(p => p.uid === targetUid),
@@ -1834,7 +2090,6 @@ function renderProfileMediaGrid() {
   } else if (activePeopleTab === 'moments') {
     items = cacheStories.filter(s => s.uid === targetUid && !s.archived);
   } else if (activePeopleTab === 'highlights') {
-    // जर नोट्स किंवा ऑफर्स नसतील, तर स्टोरी आणि पिन केलेल्या पोस्ट्स सुद्धा Highlights मध्ये दाखवा!
     items = [
       ...cacheNotes.filter(n => n.uid === targetUid && !n.archived),
       ...cacheOffers.filter(o => o.uid === targetUid && !o.archived),
@@ -1853,20 +2108,18 @@ function renderProfileMediaGrid() {
     let col = item._col || 'posts';
     let isVid = item.mediaType === 'video' || (item.img && item.img.startsWith('data:video'));
     return `
-      <div onclick="openScrollableMediaFeed('${col}', '${item.id}', 'Profile ${activePeopleTab.toUpperCase()}', window.currentProfileGridList)" style="position:relative; aspect-ratio:1/1; border-radius:12px; overflow:hidden; cursor:pointer; background:#0f172a;">
+      <div onclick="openScrollableMediaFeed('${col}', '${item.id}', 'Profile ${activePeopleTab.toUpperCase()}', window.currentProfileGridList, '${menuCtx}')" style="position:relative; aspect-ratio:1/1; border-radius:12px; overflow:hidden; cursor:pointer; background:#0f172a;">
         ${isVid
-          ? `<video src="${item.img}" style="width:100%; height:100%; object-fit:cover;" muted playsinline></video>`
+          ? `<video src="${item.img}#t=0.1" style="width:100%; height:100%; object-fit:cover;" muted playsinline preload="metadata"></video>`
           : `<img src="${item.img}" style="width:100%; height:100%; object-fit:cover;">`
         }
         ${item.pinned ? `<span style="position:absolute; top:6px; left:6px; background:rgba(0,0,0,0.65); color:#fff; font-size:11px; padding:2px 6px; border-radius:6px;">📌</span>` : ''}
-        <!-- 3-DOT BUTTON DIRECTLY ON PROFILE GRID ITEM -->
-        <button onclick="event.stopPropagation(); openItemActionMenu('${item.id}', '${col}')" style="position:absolute; top:6px; right:6px; background:rgba(0,0,0,0.65); color:#fff; border:none; width:28px; height:28px; border-radius:50%; font-size:14px; cursor:pointer; z-index:3;"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+        <button onclick="event.stopPropagation(); openItemActionMenu('${item.id}', '${col}', '${menuCtx}')" style="position:absolute; top:6px; right:6px; background:rgba(0,0,0,0.65); color:#fff; border:none; width:28px; height:28px; border-radius:50%; font-size:14px; cursor:pointer; z-index:3;"><i class="fa-solid fa-ellipsis-vertical"></i></button>
       </div>
     `;
   }).join('');
 }
 
-// बिझनेस प्रोफाईलमधील टॅब्स (Posts, Products, Reels, Moments, Archived)
 function switchBizMediaTab(tabName, el) {
   activeBizTab = tabName;
   document.querySelectorAll('#business-profile-box .prof-sub-tabs span').forEach(s => s.classList.remove('active'));
@@ -1878,6 +2131,8 @@ function renderBizMediaSection() {
   let miniBox = document.getElementById('biz-mini-products');
   if (!miniBox) return;
   let targetUid = activeProfileUser ? activeProfileUser.uid : (currentUserData ? currentUserData.uid : '');
+  let isMyOwnProfile = currentUserData && targetUid === currentUserData.uid;
+  let menuCtx = isMyOwnProfile ? 'profile_owner' : 'public_reel';
 
   let items = [];
   if (activeBizTab === 'Posts') items = cachePosts.filter(p => p.uid === targetUid && !p.archived);
@@ -1904,9 +2159,9 @@ function renderBizMediaSection() {
     let col = item._col || 'products';
     let label = item.title || item.caption || item.deal || 'Item';
     return `
-      <div onclick="openScrollableMediaFeed('${col}', '${item.id}', 'Business ${activeBizTab}', window.currentBizGridList)" style="position:relative; min-width:130px; background:#f8fafc; padding:8px; border-radius:12px; margin-right:10px; text-align:center; cursor:pointer;">
+      <div onclick="openScrollableMediaFeed('${col}', '${item.id}', 'Business ${activeBizTab}', window.currentBizGridList, '${menuCtx}')" style="position:relative; min-width:130px; background:#f8fafc; padding:8px; border-radius:12px; margin-right:10px; text-align:center; cursor:pointer;">
         <img src="${item.img}" style="width:100%; height:95px; object-fit:cover; border-radius:8px;">
-        <button onclick="event.stopPropagation(); openItemActionMenu('${item.id}', '${col}')" style="position:absolute; top:12px; right:12px; background:rgba(0,0,0,0.65); color:#fff; border:none; width:26px; height:26px; border-radius:50%; cursor:pointer;"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+        <button onclick="event.stopPropagation(); openItemActionMenu('${item.id}', '${col}', '${menuCtx}')" style="position:absolute; top:12px; right:12px; background:rgba(0,0,0,0.65); color:#fff; border:none; width:26px; height:26px; border-radius:50%; cursor:pointer;"><i class="fa-solid fa-ellipsis-vertical"></i></button>
         <div style="font-size:12px; font-weight:700; margin-top:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${label}</div>
         ${item.price ? `<b style="color:#2563eb; font-size:12px;">${item.price}</b>` : ''}
       </div>
@@ -1921,6 +2176,8 @@ async function executeRealFollow() {
   if (!currentUserData || !activeProfileUser) return;
   const myUid = currentUserData.uid;
   const targetUid = activeProfileUser.uid;
+  if (myUid === targetUid) return showToast('ℹ️ तुम्ही स्वतःलाच Follow करू शकत नाही!');
+
   const followDocRef = db.collection('users').doc(targetUid).collection('followers').doc(myUid);
   const snap = await followDocRef.get();
 
@@ -1928,6 +2185,16 @@ async function executeRealFollow() {
     await followDocRef.set({ uid: myUid, createdAt: firebase.firestore.FieldValue.serverTimestamp() });
     await db.collection('users').doc(targetUid).update({ followersCount: firebase.firestore.FieldValue.increment(1) });
     await db.collection('users').doc(myUid).update({ followingCount: firebase.firestore.FieldValue.increment(1) });
+
+    await pushRealNotification({
+      targetUid: targetUid,
+      type: 'follow',
+      actorUid: currentUserData.uid,
+      actorName: currentUserData.name,
+      actorHandle: currentUserData.handle || '@user',
+      actorAvatar: currentUserData.avatar,
+      text: `started following you.`
+    });
     showToast(`✅ तुम्ही ${activeProfileUser.name} ला Follow केले!`);
   } else {
     await followDocRef.delete();
@@ -1939,7 +2206,7 @@ async function executeRealFollow() {
 }
 
 function startChatWithActiveBiz() {
-  if (activeProfileUser) startRealChat(activeProfileUser.uid, activeProfileUser.name, 'Marketplace');
+  if (activeProfileUser) startRealChat(activeProfileUser.uid, activeProfileUser.name, 'Marketplace', activeProfileUser.avatar);
 }
 function callActiveBiz() {
   let ph = activeProfileUser && activeProfileUser.phone ? activeProfileUser.phone : '9876543210';
@@ -1973,7 +2240,7 @@ function renderCatalogGrid() {
     : list.map(p => `
       <div onclick="openProductDetail('${p.id}')" style="position:relative; background:#fff; border-radius:14px; padding:10px; cursor:pointer;">
         <img src="${p.img}" style="width:100%; height:130px; object-fit:cover; border-radius:10px;">
-        <button onclick="event.stopPropagation(); openItemActionMenu('${p.id}', 'products')" style="position:absolute; top:16px; right:16px; background:rgba(0,0,0,0.6); color:#fff; border:none; width:28px; height:28px; border-radius:50%;"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+        <button onclick="event.stopPropagation(); openItemActionMenu('${p.id}', 'products', 'profile_owner')" style="position:absolute; top:16px; right:16px; background:rgba(0,0,0,0.6); color:#fff; border:none; width:28px; height:28px; border-radius:50%;"><i class="fa-solid fa-ellipsis-vertical"></i></button>
         <h4 style="margin:8px 0 4px; font-size:14px;">${p.title}</h4>
         <div style="color:#2563eb; font-weight:800;">${p.price}</div>
       </div>
@@ -2043,11 +2310,15 @@ function closeSettingsScreen() { document.getElementById('settings-modal').style
 async function logoutCurrentUser() {
   if (auth) await auth.signOut();
   currentUserData = null;
+  activeProfileUser = null;
   closeSettingsScreen();
   showToast('👋 यशस्वीरित्या Log Out झाले!');
 }
 
 function switchBottomNav(tab) {
+  const menu = document.getElementById('create-dropdown-menu');
+  if (menu) menu.style.display = 'none';
+
   const views = ['home', 'explore', 'nearby', 'messages', 'profile'];
   views.forEach(v => {
     document.getElementById('view-' + v).style.display = (v === tab) ? 'block' : 'none';
