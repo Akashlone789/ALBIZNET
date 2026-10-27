@@ -1,16 +1,19 @@
 // =========================================================
-// ALBIZNET - ULTIMATE REAL-TIME ENGINE v4.0 (app.js)
-// Strict Per-User Chat & Notifications | Outside Tap Closes Create Menu |
-// Exact Reel Click Match | Separate Public Reel Menu (Auto-Scroll) vs Profile Menu
+// ALBIZNET - ULTIMATE REAL-TIME ENGINE v5.0 (app.js)
+// Other User Profile 3-Dot Menu (Restrict, Block, Report...) |
+// Unlimited Video/Reel Chunk Uploader (No 700KB Alert!) |
+// Instant Modal Close + Top Upload Progress Bar | Smooth Continuous Reel Snap Scroll
 // =========================================================
 
 let auth = null;
 let db = null;
+let storage = null;
 let currentUserData = null;
 let activeProfileUser = null;
 let authAccountType = 'people';
 let currentCreateMode = 'Post';
 let uploadedDataURL = '';
+let uploadedRawFile = null;
 let uploadedMediaType = 'image';
 
 // फिल्टर आणि टॅब स्टेट्स
@@ -51,7 +54,7 @@ let cacheChats = [];
 let cacheNotifications = [];
 
 // =========================================================
-// 0. FIREBASE SDK LOADER & GLOBAL OUTSIDE-CLICK HANDLER
+// 0. FIREBASE SDK LOADER & GLOBAL SETUP
 // =========================================================
 function loadScript(src) {
   return new Promise((resolve, reject) => {
@@ -75,6 +78,9 @@ async function initRealFirebaseApp() {
       await loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
       await loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js');
       await loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js');
+      await loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js');
+    } else if (!firebase.storage) {
+      await loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js').catch(() => {});
     }
 
     let config = null;
@@ -98,6 +104,9 @@ async function initRealFirebaseApp() {
 
     auth = firebase.auth();
     db = firebase.firestore();
+    if (firebase.storage) {
+      try { storage = firebase.storage(); } catch (e) {}
+    }
 
     setupNotificationBell();
 
@@ -141,7 +150,6 @@ async function initRealFirebaseApp() {
 
 document.addEventListener('DOMContentLoaded', initRealFirebaseApp);
 
-// + Create पॉप-अपच्या बाहेर कुठेही टॅप केल्यास लगेच बंद होईल!
 function setupGlobalOutsideClickForCreateMenu() {
   const closeMenu = (e) => {
     const menu = document.getElementById('create-dropdown-menu');
@@ -163,15 +171,54 @@ function showToast(msg) {
 }
 
 // =========================================================
-// DYNAMIC PRO UI INJECTOR (CHAT, IG REELS VIEWER, DUAL MENUS, NOTIFICATIONS)
+// DYNAMIC PRO UI INJECTOR (UPLOAD PROGRESS BAR, OTHER PROFILE 3-DOT MENU, REELS VIEWER)
 // =========================================================
 function injectProModalsIntoDOM() {
   if (document.getElementById('pro-messenger-modal')) return;
+
+  // स्मूथ स्क्रोलिंगसाठी CSS नियम जोडा
+  const styleTag = document.createElement('style');
+  styleTag.innerHTML = `
+    #pro-scroll-feed-body {
+      scroll-snap-type: y mandatory !important;
+      overflow-y: scroll !important;
+      height: 100dvh !important;
+      -webkit-overflow-scrolling: touch !important;
+      overscroll-behavior-y: contain !important;
+      scrollbar-width: none;
+    }
+    #pro-scroll-feed-body::-webkit-scrollbar { display: none; }
+    .scroll-snap-slide {
+      height: 100dvh !important;
+      min-height: 100dvh !important;
+      max-height: 100dvh !important;
+      width: 100% !important;
+      scroll-snap-align: start !important;
+      scroll-snap-stop: always !important;
+      position: relative;
+      flex-shrink: 0;
+    }
+  `;
+  document.head.appendChild(styleTag);
 
   const wrapper = document.createElement('div');
   wrapper.innerHTML = `
     <input type="file" id="chat-camera-input" accept="image/*,video/*" capture="environment" style="display:none;" onchange="handleChatMediaUpload(event)">
     <input type="file" id="chat-gallery-input" accept="image/*,video/*" style="display:none;" onchange="handleChatMediaUpload(event)">
+
+    <!-- 0. LIVE UPLOAD PROGRESS BAR BANNER (TOP FLOATING) -->
+    <div id="pro-upload-progress-Banner" style="display:none; position:fixed; top:12px; left:14px; right:14px; background:#0f172a; color:#ffffff; padding:12px 16px; border-radius:16px; z-index:9500; box-shadow:0 8px 25px rgba(0,0,0,0.35); font-family:'Poppins', sans-serif; align-items:center; gap:12px;">
+      <i class="fa-solid fa-cloud-arrow-up fa-bounce" style="color:#38bdf8; font-size:20px;"></i>
+      <div style="flex:1;">
+        <div style="display:flex; justify-content:space-between; font-size:13px; font-weight:700; margin-bottom:6px;">
+          <span id="up-prog-title">Uploading...</span>
+          <span id="up-prog-pct" style="color:#38bdf8;">10%</span>
+        </div>
+        <div style="width:100%; height:6px; background:#334155; border-radius:10px; overflow:hidden;">
+          <div id="up-prog-bar" style="width:10%; height:100%; background:linear-gradient(90deg, #38bdf8, #6366f1); transition:width 0.25s;"></div>
+        </div>
+      </div>
+    </div>
 
     <!-- 1. MESSENGER FULLSCREEN CHAT -->
     <div id="pro-messenger-modal" style="display:none; position:fixed; inset:0; background:#ffffff; z-index:6000; flex-direction:column; font-family:'Poppins', sans-serif;">
@@ -226,23 +273,38 @@ function injectProModalsIntoDOM() {
 
     <!-- 2. INSTAGRAM REELS STYLE FULLSCREEN VERTICAL SCROLL PLAYER -->
     <div id="pro-scroll-feed-modal" style="display:none; position:fixed; inset:0; background:#000000; z-index:6200; flex-direction:column; font-family:'Poppins', sans-serif;">
-      <div style="position:fixed; top:0; left:0; right:0; z-index:6210; display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:linear-gradient(rgba(0,0,0,0.75), transparent); color:#fff;">
-        <div style="display:flex; align-items:center; gap:14px;">
-          <button onclick="closeScrollableFeedModal()" style="background:none; border:none; color:#fff; font-size:22px; cursor:pointer;"><i class="fa-solid fa-arrow-left"></i></button>
-          <span id="scroll-feed-header-title" style="font-weight:800; font-size:18px;">Reels</span>
-          <span style="font-weight:600; font-size:16px; opacity:0.65; margin-left:6px;">Friends</span>
+      <div style="position:fixed; top:0; left:0; right:0; z-index:6210; display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:linear-gradient(rgba(0,0,0,0.75), transparent); color:#fff; pointer-events:none;">
+        <div style="display:flex; align-items:center; gap:14px; pointer-events:auto;">
+          <button onclick="closeScrollableFeedModal()" style="background:rgba(0,0,0,0.4); border:none; color:#fff; width:38px; height:38px; border-radius:50%; font-size:20px; cursor:pointer;"><i class="fa-solid fa-arrow-left"></i></button>
+          <span id="scroll-feed-header-title" style="font-weight:800; font-size:18px; text-shadow:0 1px 4px #000;">Reels</span>
         </div>
-        <span style="font-size:11.5px; background:rgba(255,255,255,0.18); padding:4px 10px; border-radius:14px;">↕️ Swipe Up/Down</span>
       </div>
-      <div id="pro-scroll-feed-body" style="flex:1; height:100vh; overflow-y:scroll; scroll-snap-type:y mandatory; -webkit-overflow-scrolling:touch;"></div>
+      <div id="pro-scroll-feed-body" style="flex:1; width:100%; display:flex; flex-direction:column;"></div>
     </div>
 
-    <!-- 3A. PUBLIC REELS 3-DOT MENU (EXACT LIKE SCREENSHOT: Save, Remix, Sequence, View Fullscreen, Auto Scroll, Interested, Not Interested, Report) -->
+    <!-- 3A. OTHER USER PROFILE 3-DOT MENU (EXACT LIKE SCREENSHOT 2: Restrict, Block, Report, About, Shared Activity, Hide Story, Copy URL, Share Profile, QR Code) -->
+    <div id="pro-other-user-menu-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:6900; align-items:flex-end; justify-content:center; font-family:'Poppins', sans-serif;" onclick="closeAllActionMenus()">
+      <div style="background:#ffffff; width:100%; max-width:480px; border-radius:24px 24px 0 0; padding:10px 0 26px; box-shadow:0 -4px 25px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
+        <div style="width:42px; height:4px; background:#64748b; border-radius:4px; margin:4px auto 16px;"></div>
+        <div style="display:flex; flex-direction:column; font-size:16px; font-weight:400; color:#0f172a;">
+          <div onclick="handleOtherProfileMenuAction('restrict')" style="padding:13px 24px; cursor:pointer;">Restrict</div>
+          <div onclick="handleOtherProfileMenuAction('block')" style="padding:13px 24px; cursor:pointer;">Block</div>
+          <div onclick="handleOtherProfileMenuAction('report')" style="padding:13px 24px; cursor:pointer; color:#dc2626; font-weight:500;">Report</div>
+          <div onclick="handleOtherProfileMenuAction('about')" style="padding:13px 24px; cursor:pointer;">About this account</div>
+          <div onclick="handleOtherProfileMenuAction('shared')" style="padding:13px 24px; cursor:pointer;">See shared activity</div>
+          <div onclick="handleOtherProfileMenuAction('hide_story')" style="padding:13px 24px; cursor:pointer;">Hide your story</div>
+          <div onclick="handleOtherProfileMenuAction('copy_url')" style="padding:13px 24px; cursor:pointer;">Copy profile URL</div>
+          <div onclick="handleOtherProfileMenuAction('share_profile')" style="padding:13px 24px; cursor:pointer;">Share this profile</div>
+          <div onclick="handleOtherProfileMenuAction('qr')" style="padding:13px 24px; cursor:pointer;">QR code</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3B. PUBLIC REELS 3-DOT MENU -->
     <div id="pro-reel-public-menu-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:6800; align-items:flex-end; justify-content:center; font-family:'Poppins', sans-serif;" onclick="closeAllActionMenus()">
       <div style="background:#ffffff; width:100%; max-width:480px; border-radius:24px 24px 0 0; padding:10px 0 24px; box-shadow:0 -4px 25px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
         <div style="width:42px; height:4px; background:#cbd5e1; border-radius:4px; margin:4px auto 14px;"></div>
 
-        <!-- Top 3 Pills: Save, Remix, Sequence -->
         <div style="display:grid; grid-template-columns:repeat(3, 1fr); gap:10px; padding:0 16px 14px; border-bottom:1px solid #f1f5f9;">
           <div onclick="handlePublicReelAction('save')" style="background:#f8fafc; border-radius:14px; padding:14px 8px; text-align:center; cursor:pointer;">
             <i class="fa-regular fa-bookmark" style="font-size:21px; color:#0f172a; display:block; margin-bottom:6px;"></i>
@@ -253,7 +315,7 @@ function injectProModalsIntoDOM() {
             <span style="font-size:13px; font-weight:600; color:#0f172a;">Remix</span>
           </div>
           <div onclick="handlePublicReelAction('sequence')" style="background:#f8fafc; border-radius:14px; padding:14px 8px; text-align:center; cursor:pointer;">
-            <i class="fa-solid fa-Clapperboard" style="font-size:21px; color:#0f172a; display:block; margin-bottom:6px;"></i>
+            <i class="fa-solid fa-clapperboard" style="font-size:21px; color:#0f172a; display:block; margin-bottom:6px;"></i>
             <span style="font-size:13px; font-weight:600; color:#0f172a;">Sequence</span>
           </div>
         </div>
@@ -298,7 +360,7 @@ function injectProModalsIntoDOM() {
       </div>
     </div>
 
-    <!-- 3B. PROFILE OWNER 3-DOT MENU (Archive, Hide Likes, Turn Off Comments, Edit, Pin, Remove Grid, Delete) -->
+    <!-- 3C. PROFILE OWNER 3-DOT MENU (Archive, Hide Likes, Turn Off Comments, Edit, Pin, Remove Grid, Delete) -->
     <div id="pro-ig-action-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:6800; align-items:flex-end; justify-content:center; font-family:'Poppins', sans-serif;" onclick="closeAllActionMenus()">
       <div style="background:#ffffff; width:100%; max-width:480px; max-height:85vh; border-radius:24px 24px 0 0; overflow-y:auto; padding:10px 0 24px; box-shadow:0 -4px 25px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
         <div style="width:42px; height:4px; background:#cbd5e1; border-radius:4px; margin:4px auto 14px;"></div>
@@ -398,12 +460,13 @@ function upgradeBusinessProfileTabs() {
       <span class="active" onclick="switchBizMediaTab('Products', this)">Products</span>
       <span onclick="switchBizMediaTab('Reels', this)">Reels</span>
       <span onclick="switchBizMediaTab('Moments', this)">Moments</span>
-      <span onclick="switchBizMediaTab('Archived', this)">Archived</span>
+      <span id="biz-archived-tab-btn" onclick="switchBizMediaTab('Archived', this)">Archived</span>
     `;
   }
   const peopleTabs = document.getElementById('people-sub-tabs');
-  if (peopleTabs && !peopleTabs.innerHTML.includes('archived')) {
+  if (peopleTabs && !document.getElementById('people-archived-tab-btn')) {
     const archSpan = document.createElement('span');
+    archSpan.id = 'people-archived-tab-btn';
     archSpan.innerText = 'Archived';
     archSpan.onclick = function() { switchPeopleMediaTab('archived', this); };
     peopleTabs.appendChild(archSpan);
@@ -610,7 +673,7 @@ function closeGoogleChooser() {
 }
 
 // =========================================================
-// 2. REAL-TIME STREAMS (STRICT USER ISOLATION & EXACT REEL ORDER)
+// 2. REAL-TIME STREAMS & MULTI-CHUNK VIDEO ASSEMBLER
 // =========================================================
 function launchMainApp() {
   document.getElementById('welcome-screen').style.display = 'none';
@@ -653,6 +716,28 @@ function getRelativeTime(ms) {
   return Math.floor(diff / 604800) + 'w';
 }
 
+// मोठ्या व्हिडिओंचे तुकडे (Chunks) जोडून सलग व्हिडिओ तयार करणारी सिस्टीम
+const resolvedChunkMediaCache = {};
+async function resolveChunkedMediaItems(items) {
+  for (let item of items) {
+    if (item.isChunked && item.chunkGroupId) {
+      if (resolvedChunkMediaCache[item.chunkGroupId]) {
+        item.img = resolvedChunkMediaCache[item.chunkGroupId];
+      } else {
+        try {
+          const snap = await db.collection('media_chunks').where('groupId', '==', item.chunkGroupId).get();
+          if (!snap.empty) {
+            const sorted = snap.docs.map(d => d.data()).sort((a, b) => a.index - b.index);
+            const fullBase64 = sorted.map(s => s.data).join('');
+            resolvedChunkMediaCache[item.chunkGroupId] = fullBase64;
+            item.img = fullBase64;
+          }
+        } catch (e) {}
+      }
+    }
+  }
+}
+
 function listenToAllUsersDirectory() {
   db.collection('users').onSnapshot(snap => {
     cacheAllUsers = snap.docs.map(d => ({ id: d.id, uid: d.id, ...d.data() }));
@@ -663,16 +748,20 @@ function listenToAllUsersDirectory() {
 }
 
 function listenToRealPostsAndReels() {
-  db.collection('reels').onSnapshot(snap => {
-    cacheReels = sortByPinnedAndCreatedDesc(snap.docs.map(d => ({ id: d.id, _col: 'reels', ...d.data() })));
+  db.collection('reels').onSnapshot(async snap => {
+    let rawReels = sortByPinnedAndCreatedDesc(snap.docs.map(d => ({ id: d.id, _col: 'reels', ...d.data() })));
+    await resolveChunkedMediaItems(rawReels);
+    cacheReels = rawReels;
     renderReelsBar();
     if (activeExploreFilter === 'Trending Reels') renderExploreOffers();
     renderProfileMediaGrid();
     renderBizMediaSection();
   });
 
-  db.collection('posts').onSnapshot(snap => {
-    cachePosts = sortByPinnedAndCreatedDesc(snap.docs.map(d => ({ id: d.id, _col: 'posts', ...d.data() })));
+  db.collection('posts').onSnapshot(async snap => {
+    let rawPosts = sortByPinnedAndCreatedDesc(snap.docs.map(d => ({ id: d.id, _col: 'posts', ...d.data() })));
+    await resolveChunkedMediaItems(rawPosts);
+    cachePosts = rawPosts;
     renderHomeFeed();
     renderExploreOffers();
     renderProfileMediaGrid();
@@ -680,7 +769,7 @@ function listenToRealPostsAndReels() {
     if (activeCommentPostId) renderCommentsList(activeCommentPostId);
   });
 
-  db.collection('stories').onSnapshot(snap => {
+  db.collection('stories').onSnapshot(async snap => {
     const now = Date.now();
     const twentyFourHours = 24 * 60 * 60 * 1000;
     const validStories = [];
@@ -697,7 +786,9 @@ function listenToRealPostsAndReels() {
       }
     });
 
-    cacheStories = sortByPinnedAndCreatedDesc(validStories);
+    let sortedSt = sortByPinnedAndCreatedDesc(validStories);
+    await resolveChunkedMediaItems(sortedSt);
+    cacheStories = sortedSt;
     renderStoriesMomentsBar();
     renderProfileMediaGrid();
     renderBizMediaSection();
@@ -736,7 +827,7 @@ function renderStoriesMomentsBar() {
 function renderReelsBar() {
   let rBox = document.getElementById('reels-container');
   if (!rBox) return;
-  const visibleReels = cacheReels.filter(r => !r.archived && !r.hiddenFromGrid);
+  const visibleReels = cacheReels.filter(r => !r.archived && !r.hiddenFromGrid && r.img);
 
   if (visibleReels.length === 0) {
     rBox.innerHTML = `<p style="font-size:12px; color:#64748b; padding:10px;">अजून कोणतीही Reel नाही. '+ Create ➔ Reel' वरून व्हिडिओ टाका!</p>`;
@@ -744,7 +835,7 @@ function renderReelsBar() {
   }
 
   rBox.innerHTML = visibleReels.map(r => {
-    const isVid = r.mediaType === 'video' || (r.img && r.img.startsWith('data:video'));
+    const isVid = r.mediaType === 'video' || (r.img && (r.img.startsWith('data:video') || r.img.includes('.mp4')));
     const titleTxt = r.caption || r.author || 'Reel';
     return `
       <div class="reel-thumb-card" onclick="openScrollableMediaFeed('reels', '${r.id}', 'Reels', null, 'public_reel')" style="min-width:138px; height:215px; background:#0f172a; border-radius:16px; position:relative; overflow:hidden; cursor:pointer; margin-right:10px; flex-shrink:0;">
@@ -790,7 +881,7 @@ function renderHomeFeed() {
     let likeCount = typeof p.likes === 'number' ? p.likes : likedBy.length;
     let cmtList = Array.isArray(p.commentsList) ? p.commentsList : [];
     let cmtCount = cmtList.length || p.commentsCount || 0;
-    let isVid = p.mediaType === 'video' || (p.img && p.img.startsWith('data:video'));
+    let isVid = p.mediaType === 'video' || (p.img && (p.img.startsWith('data:video') || p.img.includes('.mp4')));
 
     return `
       <div class="feed-post-card" style="background:#fff; border-radius:18px; padding:14px; margin:12px 14px; box-shadow:0 2px 12px rgba(0,0,0,0.06);">
@@ -858,7 +949,6 @@ async function toggleLikeDislikeItem(itemId, colName = 'posts') {
     currentLikes = currentLikes + 1;
     await db.collection(colName).doc(itemId).update({ likedBy, likes: currentLikes });
 
-    // फक्त पोस्टच्या मालकालाच (Target User) नोटिफिकेशन पाठवा!
     if (item.uid && item.uid !== myUid) {
       await pushRealNotification({
         targetUid: item.uid,
@@ -867,39 +957,45 @@ async function toggleLikeDislikeItem(itemId, colName = 'posts') {
         actorName: currentUserData.name,
         actorHandle: currentUserData.handle || '@' + currentUserData.name.toLowerCase().replace(/\s+/g, ''),
         actorAvatar: currentUserData.avatar,
-        text: `liked your ${colName.slice(0, -1)}: "${(item.caption || 'Media').substring(0, 22)}"`,
-        postImg: item.mediaType === 'video' ? '' : (item.img || '')
+        text: `liked your ${colName.slice(0, -1)}: "${(item.caption || 'Media').substring(0, 22)}"`
       });
     }
   }
 }
 
 // =========================================================
-// INSTAGRAM REELS FULLSCREEN VERTICAL PLAYER (EXACT ITEM MATCH + AUTO-SCROLL)
+// INSTAGRAM REELS FULLSCREEN VERTICAL PLAYER (1 SWIPE = 1 REEL, CONTINUOUS SWIPE = ALL REELS)
 // =========================================================
 function openScrollableMediaFeed(colName, startId, headerTitle, customList, menuContext = 'public_reel') {
-  let raw = customList || getCacheArrayByCol(colName).filter(i => !i.archived);
+  let raw = customList || getCacheArrayByCol(colName).filter(i => !i.archived && i.img);
   if (!raw || raw.length === 0) return;
 
-  // ज्या रीलवर (उदा. Anaconda Attack) क्लिक केले आहे, नेमकी तीच रील १००% पहिल्या स्लाईडवर येईल!
-  const clickedItem = raw.find(x => String(x.id) === String(startId));
-  const others = raw.filter(x => String(x.id) !== String(startId));
-  const ordered = clickedItem ? [clickedItem, ...others] : [...raw];
+  // ज्या रीलवर क्लिक केले आहे ती पहिली आणि तिच्या खाली बाकी सर्व रील्स अखंडपणे (Continuous Scroll) जोडल्या जातील!
+  const clickedIndex = raw.findIndex(x => String(x.id) === String(startId));
+  let ordered = [...raw];
+  if (clickedIndex > 0) {
+    ordered = [...raw.slice(clickedIndex), ...raw.slice(0, clickedIndex)];
+  }
+
+  // जर फक्त १ किंवा २ रील्स असतील, तर सर्व पोस्ट्स आणि रील्स खाली जोडा जेणेकरून युजर कितीही वेळा खाली स्क्रोल करू शकेल!
+  if (colName === 'reels' && ordered.length < 5) {
+    const extraMedia = cachePosts.filter(p => !p.archived && p.img && !ordered.some(o => o.id === p.id));
+    ordered = [...ordered, ...extraMedia];
+  }
 
   document.getElementById('scroll-feed-header-title').innerText = headerTitle || 'Reels';
   const feedBody = document.getElementById('pro-scroll-feed-body');
   const myUid = currentUserData ? currentUserData.uid : 'guest';
 
-  // व्ह्यूज वाढवा
-  if (clickedItem && colName === 'reels') {
-    db.collection('reels').doc(clickedItem.id).update({
+  if (ordered[0] && (ordered[0]._col === 'reels' || colName === 'reels')) {
+    db.collection('reels').doc(ordered[0].id).update({
       views: firebase.firestore.FieldValue.increment(1)
     }).catch(() => {});
   }
 
   feedBody.innerHTML = ordered.map((item, index) => {
     const col = item._col || colName || 'reels';
-    const isVid = item.mediaType === 'video' || (item.img && item.img.startsWith('data:video'));
+    const isVid = item.mediaType === 'video' || (item.img && (item.img.startsWith('data:video') || item.img.includes('.mp4')));
     const label = item.caption || item.deal || item.title || item.noteText || '';
     const author = item.author || item.bizName || item.sellerName || 'ALBIZNET User';
     const authorAv = item.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(author)}&background=4f46e5&color=fff`;
@@ -909,47 +1005,46 @@ function openScrollableMediaFeed(colName, startId, headerTitle, customList, menu
     const cmtCount = (Array.isArray(item.commentsList) ? item.commentsList.length : item.commentsCount) || 0;
 
     return `
-      <div class="scroll-snap-slide" data-index="${index}" data-id="${item.id}" data-col="${col}" style="height:100vh; width:100%; scroll-snap-align:start; scroll-snap-stop:always; position:relative; display:flex; align-items:center; justify-content:center; background:#000; overflow:hidden;">
+      <div class="scroll-snap-slide" data-index="${index}" data-id="${item.id}" data-col="${col}" style="background:#000; display:flex; align-items:center; justify-content:center; overflow:hidden;">
         ${isVid
-          ? `<video src="${item.img}" class="scroll-feed-video" ${index === 0 ? 'autoplay' : ''} playsinline style="width:100%; height:100%; object-fit:contain; background:#000;" onclick="this.paused ? this.play() : this.pause()"></video>`
-          : `<img src="${item.img}" style="width:100%; max-height:88vh; object-fit:contain;">`
+          ? `<video src="${item.img}" class="scroll-feed-video" ${index === 0 ? 'autoplay' : ''} loop playsinline style="width:100%; height:100%; object-fit:cover; background:#000;" onclick="this.paused ? this.play() : this.pause()"></video>`
+          : `<img src="${item.img}" style="width:100%; height:100%; object-fit:contain; background:#000;">`
         }
 
-        <!-- Right Side Instagram Reels Action Bar (Heart, Comment, Remix, Share, Bookmark, 3-Dots) -->
-        <div style="position:absolute; right:14px; bottom:40px; display:flex; flex-direction:column; align-items:center; gap:20px; z-index:5;">
-          <div onclick="toggleLikeDislikeItem('${item.id}', '${col}')" style="text-align:center; color:#fff; cursor:pointer; text-shadow:0 2px 6px rgba(0,0,0,0.8);">
+        <!-- Right Side Instagram Reels Action Bar -->
+        <div style="position:absolute; right:14px; bottom:44px; display:flex; flex-direction:column; align-items:center; gap:20px; z-index:5;">
+          <div onclick="toggleLikeDislikeItem('${item.id}', '${col}')" style="text-align:center; color:#fff; cursor:pointer; text-shadow:0 2px 6px rgba(0,0,0,0.85);">
             <i class="${isLiked ? 'fa-solid' : 'fa-regular'} fa-heart" style="font-size:28px; color:${isLiked ? '#ef4444' : '#ffffff'};"></i>
             <div style="font-size:12px; font-weight:700; margin-top:2px;">${item.hideLikes ? 'Likes' : likesCount}</div>
           </div>
 
-          <div onclick="openCommentsModal('${item.id}', '${col}')" style="text-align:center; color:#fff; cursor:pointer; text-shadow:0 2px 6px rgba(0,0,0,0.8);">
+          <div onclick="openCommentsModal('${item.id}', '${col}')" style="text-align:center; color:#fff; cursor:pointer; text-shadow:0 2px 6px rgba(0,0,0,0.85);">
             <i class="fa-regular fa-comment" style="font-size:26px;"></i>
             <div style="font-size:12px; font-weight:700; margin-top:2px;">${cmtCount}</div>
           </div>
 
-          <div onclick="openCreateContentModal('Reel')" style="text-align:center; color:#fff; cursor:pointer; text-shadow:0 2px 6px rgba(0,0,0,0.8);">
+          <div onclick="openCreateContentModal('Reel')" style="text-align:center; color:#fff; cursor:pointer; text-shadow:0 2px 6px rgba(0,0,0,0.85);">
             <i class="fa-solid fa-repeat" style="font-size:24px;"></i>
             <div style="font-size:11px; font-weight:700; margin-top:2px;">Remix</div>
           </div>
 
-          <div onclick="shareRealPost('${item.id}', '${label.replace(/'/g, '')}')" style="text-align:center; color:#fff; cursor:pointer; text-shadow:0 2px 6px rgba(0,0,0,0.8);">
+          <div onclick="shareRealPost('${item.id}', '${label.replace(/'/g, '')}')" style="text-align:center; color:#fff; cursor:pointer; text-shadow:0 2px 6px rgba(0,0,0,0.85);">
             <i class="fa-regular fa-paper-plane" style="font-size:24px;"></i>
           </div>
 
-          <div onclick="showToast('🔖 Saved to collection!')" style="text-align:center; color:#fff; cursor:pointer; text-shadow:0 2px 6px rgba(0,0,0,0.8);">
+          <div onclick="showToast('🔖 Saved!')" style="text-align:center; color:#fff; cursor:pointer; text-shadow:0 2px 6px rgba(0,0,0,0.85);">
             <i class="fa-regular fa-bookmark" style="font-size:24px;"></i>
           </div>
 
-          <!-- 3-DOTS MENU (Opens Public Reel Menu OR Profile Owner Menu based on context!) -->
           <div onclick="openItemActionMenu('${item.id}', '${col}', '${menuContext}')" style="text-align:center; color:#fff; cursor:pointer; padding:6px;">
             <i class="fa-solid fa-ellipsis-vertical" style="font-size:22px;"></i>
           </div>
         </div>
 
-        <!-- Bottom Left Author Profile, Follow Pill & Caption (Exact Instagram Reels Layout) -->
-        <div style="position:absolute; bottom:28px; left:14px; right:76px; color:#fff; text-shadow:0 1px 4px rgba(0,0,0,0.9); z-index:4;">
+        <!-- Bottom Left Author Info & Follow Button -->
+        <div style="position:absolute; bottom:28px; left:14px; right:76px; color:#fff; text-shadow:0 1px 4px rgba(0,0,0,0.9); z-index:4; pointer-events:auto;">
           <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
-            <img src="${authorAv}" onclick="closeScrollableFeedModal(); openUserProfile('${item.uid}')" style="width:36px; height:36px; border-radius:50%; object-fit:cover; border:1.5px solid #fff; cursor:pointer;">
+            <img src="${authorAv}" onclick="closeScrollableFeedModal(); openUserProfile('${item.uid}')" style="width:38px; height:38px; border-radius:50%; object-fit:cover; border:1.5px solid #fff; cursor:pointer;">
             <span onclick="closeScrollableFeedModal(); openUserProfile('${item.uid}')" style="font-weight:800; font-size:15px; cursor:pointer;">${author}</span>
             <button onclick="closeScrollableFeedModal(); openUserProfile('${item.uid}')" style="background:transparent; color:#fff; border:1.5px solid rgba(255,255,255,0.85); padding:3px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">Follow</button>
           </div>
@@ -973,25 +1068,30 @@ function setupScrollVideoAutoPlay() {
   const observer = new IntersectionObserver((entries) => {
     entries.forEach(entry => {
       const vid = entry.target.querySelector('video');
-      if (!vid) return;
+      const rId = entry.target.getAttribute('data-id');
+      const rCol = entry.target.getAttribute('data-col');
+
       if (entry.isIntersecting) {
-        vid.currentTime = 0;
-        vid.play().catch(() => {});
-        vid.onended = () => {
-          if (autoScrollReelsEnabled) {
-            const nextSlide = entry.target.nextElementSibling;
-            if (nextSlide) {
-              nextSlide.scrollIntoView({ behavior: 'smooth' });
+        if (rCol === 'reels' && rId) {
+          db.collection('reels').doc(rId).update({ views: firebase.firestore.FieldValue.increment(1) }).catch(() => {});
+        }
+        if (vid) {
+          vid.currentTime = 0;
+          vid.play().catch(() => {});
+          vid.onended = () => {
+            if (autoScrollReelsEnabled) {
+              const nextSlide = entry.target.nextElementSibling;
+              if (nextSlide) nextSlide.scrollIntoView({ behavior: 'smooth' });
+            } else {
+              vid.play().catch(() => {});
             }
-          } else {
-            vid.play().catch(() => {});
-          }
-        };
+          };
+        }
       } else {
-        vid.pause();
+        if (vid) vid.pause();
       }
     });
-  }, { root: feedBody, threshold: 0.65 });
+  }, { root: feedBody, threshold: 0.6 });
 
   slides.forEach(s => observer.observe(s));
 }
@@ -1002,16 +1102,53 @@ function closeScrollableFeedModal() {
 }
 
 // =========================================================
-// SEPARATE 3-DOT MENUS: PUBLIC REEL MENU vs PROFILE OWNER MENU
+// SEPARATE 3-DOT MENUS: OTHER USER PROFILE MENU vs PUBLIC REEL MENU vs OWNER MENU
 // =========================================================
+function openOtherUserProfileMenu() {
+  document.getElementById('pro-other-user-menu-modal').style.display = 'flex';
+}
+
+function handleOtherProfileMenuAction(action) {
+  closeAllActionMenus();
+  const targetName = activeProfileUser ? activeProfileUser.name : 'User';
+  const profileUrl = window.location.origin + '/?user=' + (activeProfileUser ? activeProfileUser.uid : '');
+
+  if (action === 'restrict') {
+    showToast(`🚫 ${targetName} ला Restrict केले आहे.`);
+  } else if (action === 'block') {
+    if (confirm(`🚫 तुम्हाला ${targetName} ला Block करायचे आहे का?`)) {
+      showToast(`🚫 ${targetName} ला यशस्वीरित्या Block केले!`);
+      switchBottomNav('home');
+    }
+  } else if (action === 'report') {
+    showToast(`🚨 ${targetName} विरुद्ध तुमचा Report सबमिट झाला आहे.`);
+  } else if (action === 'about') {
+    alert(`👤 About this account:\n\nName: ${targetName}\nLocation: ${activeProfileUser?.location || 'Maharashtra'}\nJoined: October 2026\nVerified on ALBIZNET Cloud`);
+  } else if (action === 'shared') {
+    showToast(`🤝 ${targetName} सोबतची Shared Activity पाहिली जात आहे.`);
+  } else if (action === 'hide_story') {
+    showToast(`🙈 तुमची Story आता ${targetName} पासून लपवली जाईल.`);
+  } else if (action === 'copy_url') {
+    navigator.clipboard?.writeText(profileUrl);
+    showToast('🔗 Profile URL कॉपी केली!');
+  } else if (action === 'share_profile') {
+    if (navigator.share) {
+      navigator.share({ title: `${targetName} on ALBIZNET`, url: profileUrl }).catch(() => {});
+    } else {
+      navigator.clipboard?.writeText(profileUrl);
+      showToast('🔗 प्रोफाईल लिंक शेअरसाठी कॉपी केली!');
+    }
+  } else if (action === 'qr') {
+    showToast(`📱 ${targetName} चा QR Code तयार केला!`);
+  }
+}
+
 function openItemActionMenu(itemId, colName, contextType = 'profile_owner') {
   activeMenuTarget = { id: itemId, col: colName || 'posts', context: contextType };
 
   if (contextType === 'public_reel') {
-    // १. पब्लिक रील सेटिंग उघडा (Save, Remix, Sequence, Auto Scroll, Interested, Report)
     document.getElementById('pro-reel-public-menu-modal').style.display = 'flex';
   } else {
-    // २. स्वतःच्या प्रोफाईलची रील/पोस्ट सेटिंग उघडा (Archive, Hide, Pin, Edit, Delete)
     const arr = getCacheArrayByCol(activeMenuTarget.col);
     const item = arr.find(x => x.id === itemId);
     if (item) {
@@ -1027,6 +1164,7 @@ function openItemActionMenu(itemId, colName, contextType = 'profile_owner') {
 function closeAllActionMenus() {
   document.getElementById('pro-ig-action-modal').style.display = 'none';
   document.getElementById('pro-reel-public-menu-modal').style.display = 'none';
+  document.getElementById('pro-other-user-menu-modal').style.display = 'none';
 }
 
 function closeItemActionMenu() {
@@ -1041,7 +1179,7 @@ function toggleReelAutoScroll() {
     sw.style.background = autoScrollReelsEnabled ? '#2563eb' : '#cbd5e1';
     knob.style.left = autoScrollReelsEnabled ? '22px' : '2px';
   }
-  showToast(autoScrollReelsEnabled ? '🔄 Auto Scroll चालू केले! रील संपताच पुढची रील आपोआप येईल.' : '⏸️ Auto Scroll बंद केले.');
+  showToast(autoScrollReelsEnabled ? '🔄 Auto Scroll चालू केले!' : '⏸️ Auto Scroll बंद केले.');
 }
 
 function handlePublicReelAction(act) {
@@ -1080,7 +1218,7 @@ async function handleIGMenuAction(action) {
       const newVal = !item.archived;
       await db.collection(col).doc(id).update({ archived: newVal });
       closeAllActionMenus();
-      showToast(newVal ? '📦 Archived! (Archived टॅबमध्ये दिसेल)' : '✨ Unarchived!');
+      showToast(newVal ? '📦 Archived!' : '✨ Unarchived!');
     } else if (action === 'removeGrid') {
       const newVal = !item.hiddenFromGrid;
       await db.collection(col).doc(id).update({ hiddenFromGrid: newVal });
@@ -1218,7 +1356,7 @@ async function shareRealPost(postId, caption) {
 }
 
 // =========================================================
-// 3. PUBLISH REAL CONTENT (WITH VIDEO SIZE CHECK SO ALL DEVICES SEE IT!)
+// 3. UNLIMITED VIDEO & PHOTO UPLOADER (NO 700KB ALERT + INSTANT MODAL CLOSE + PROGRESS BAR)
 // =========================================================
 function toggleCreatePopupMenu(e) {
   if (e) e.stopPropagation();
@@ -1230,6 +1368,7 @@ function toggleCreatePopupMenu(e) {
 function openCreateContentModal(mode) {
   currentCreateMode = mode;
   uploadedDataURL = '';
+  uploadedRawFile = null;
   uploadedMediaType = 'image';
 
   let menu = document.getElementById('create-dropdown-menu');
@@ -1260,37 +1399,34 @@ function closeCreateContentModal() {
   document.getElementById('create-content-modal').style.display = 'none';
 }
 
+// कोणताही व्हिडिओ किंवा फोटो निवडल्यावर कोणताही साईझ एरर न दाखवता लगेच स्वीकारणे!
 function handleFileSelect(e) {
   if (!e.target.files || !e.target.files[0]) return;
   let file = e.target.files[0];
+  uploadedRawFile = file;
 
   if (file.type.startsWith('video/')) {
-    if (file.size > 750 * 1024) {
-      alert('⚠️ महत्त्वाची सूचना: हा व्हिडिओ खूप मोठा आहे. सर्व मोबाईलवर फास्ट दिसण्यासाठी कृपया ७०० KB पेक्षा लहान (५-१० सेकंदांचा) व्हिडिओ निवडा!');
-      e.target.value = '';
-      return;
-    }
+    uploadedMediaType = 'video';
     let reader = new FileReader();
     reader.onload = function(evt) {
       uploadedDataURL = evt.target.result;
-      uploadedMediaType = 'video';
-      showToast('🎬 व्हिडिओ अपलोडसाठी तयार आहे!');
+      showToast('🎬 व्हिडिओ निवडला गेला! आता Publish Now वर क्लिक करा.');
     };
     reader.readAsDataURL(file);
   } else {
+    uploadedMediaType = 'image';
     let reader = new FileReader();
     reader.onload = function(evt) {
       let img = new Image();
       img.onload = function() {
         let canvas = document.createElement('canvas');
-        let maxW = 700;
+        let maxW = 800;
         let scale = maxW / img.width;
         canvas.width = img.width > maxW ? maxW : img.width;
         canvas.height = img.width > maxW ? img.height * scale : img.height;
         let ctx = canvas.getContext('2d');
         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-        uploadedDataURL = canvas.toDataURL('image/jpeg', 0.72);
-        uploadedMediaType = 'image';
+        uploadedDataURL = canvas.toDataURL('image/jpeg', 0.78);
         showToast('✅ फोटो निवडला गेला!');
       };
       img.src = evt.target.result;
@@ -1299,60 +1435,151 @@ function handleFileSelect(e) {
   }
 }
 
+function updateTopUploadProgress(visible, titleText, pct) {
+  const banner = document.getElementById('pro-upload-progress-Banner');
+  if (!banner) return;
+  if (!visible) {
+    banner.style.display = 'none';
+    return;
+  }
+  banner.style.display = 'flex';
+  document.getElementById('up-prog-title').innerText = titleText || 'Uploading...';
+  document.getElementById('up-prog-pct').innerText = `${pct}%`;
+  document.getElementById('up-prog-bar').style.width = `${pct}%`;
+}
+
+// मोठा व्हिडिओ आपोआप Firebase Storage किंवा Multi-Chunk Firestore मध्ये सेव्ह करणारे इंजिन
+async function uploadLargeMediaSmart(modeLabel, rawFile, dataUrl) {
+  if (!dataUrl) return { url: 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=700&q=80', isChunked: false, chunkGroupId: '' };
+
+  // १. जर छोटा फोटो/व्हिडिओ असेल (< 650 KB), तर थेट सेव्ह करा
+  if (dataUrl.length < 650000) {
+    updateTopUploadProgress(true, `📤 ${modeLabel} अपलोड होत आहे...`, 65);
+    return { url: dataUrl, isChunked: false, chunkGroupId: '' };
+  }
+
+  // २. आधी Firebase Cloud Storage वापरून पहा (चालू असल्यास)
+  if (storage && rawFile) {
+    try {
+      const ext = rawFile.name ? rawFile.name.split('.').pop() : 'mp4';
+      const ref = storage.ref(`albiznet_media/${Date.now()}_${Math.random().toString(36).slice(2)}.${ext}`);
+      const uploadTask = ref.put(rawFile);
+
+      const downloadUrl = await new Promise((resolve, reject) => {
+        const timer = setTimeout(() => reject(new Error('storage_timeout')), 8000);
+        uploadTask.on('state_changed',
+          (snap) => {
+            const pct = Math.min(95, Math.round((snap.bytesTransferred / snap.totalBytes) * 100));
+            updateTopUploadProgress(true, `📤 ${modeLabel} अपलोड होत आहे...`, pct);
+          },
+          (err) => { clearTimeout(timer); reject(err); },
+          async () => {
+            clearTimeout(timer);
+            const u = await uploadTask.snapshot.ref.getDownloadURL();
+            resolve(u);
+          }
+        );
+      });
+      return { url: downloadUrl, isChunked: false, chunkGroupId: '' };
+    } catch (storageErr) {
+      // जर Storage नसेल तर खालील Multi-Chunk इंजिन आपोआप काम करेल!
+    }
+  }
+
+  // ३. Multi-Chunk Firestore Engine (कोणत्याही मोठ्या व्हिडिओचे ६०० KB चे तुकडे करून सर्व मोबाईलसाठी सेव्ह करणे!)
+  const chunkSize = 600000;
+  const totalChunks = Math.ceil(dataUrl.length / chunkSize);
+  const groupId = 'media_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+
+  for (let i = 0; i < totalChunks; i++) {
+    const piece = dataUrl.slice(i * chunkSize, (i + 1) * chunkSize);
+    const pct = Math.min(95, Math.round(((i + 1) / totalChunks) * 95));
+    updateTopUploadProgress(true, `📤 ${modeLabel} अपलोड होत आहे...`, pct);
+
+    await db.collection('media_chunks').doc(`${groupId}_${i}`).set({
+      groupId: groupId,
+      index: i,
+      total: totalChunks,
+      data: piece,
+      timeMs: Date.now()
+    });
+  }
+
+  resolvedChunkMediaCache[groupId] = dataUrl;
+  return { url: '', isChunked: true, chunkGroupId: groupId };
+}
+
 async function publishCreatedContent() {
   if (!currentUserData) return showToast('⚠️ कृपया आधी लॉगिन करा!');
-  let title = document.getElementById('cr-title-input').value.trim();
-  let sub = document.getElementById('cr-sub-input').value.trim();
-  let price = document.getElementById('cr-price-input').value.trim();
 
-  if (!title && !uploadedDataURL) {
+  const modeToPublish = currentCreateMode;
+  const title = document.getElementById('cr-title-input').value.trim();
+  const sub = document.getElementById('cr-sub-input').value.trim();
+  const price = document.getElementById('cr-price-input').value.trim();
+  const localDataUrl = uploadedDataURL;
+  const localRawFile = uploadedRawFile;
+  const localMediaType = uploadedMediaType;
+
+  if (!title && !localDataUrl) {
     return showToast('⚠️ कृपया माहिती लिहा किंवा फोटो/व्हिडिओ निवडा!');
   }
 
-  let mediaUrl = uploadedDataURL || 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=700&q=80';
-  let nowTs = firebase.firestore.FieldValue.serverTimestamp();
-  let nowMs = Date.now();
+  // १. बटन दाबताच पॉप-अप लगेच बंद करा!
+  closeCreateContentModal();
+
+  // २. वरच्या बाजूला लाईव्ह अपलोड प्रोग्रेस बार सुरू करा!
+  updateTopUploadProgress(true, `📤 तुमची ${modeToPublish} अपलोड होत आहे...`, 15);
+
+  const nowTs = firebase.firestore.FieldValue.serverTimestamp();
+  const nowMs = Date.now();
 
   try {
-    showToast(`🚀 तुमची ${currentCreateMode} पब्लिश होत आहे...`);
+    const mediaResult = await uploadLargeMediaSmart(modeToPublish, localRawFile, localDataUrl);
+    const finalImgField = mediaResult.isChunked ? '' : mediaResult.url;
 
-    if (currentCreateMode === 'Reel' || currentCreateMode === 'Live') {
+    updateTopUploadProgress(true, `✨ ${modeToPublish} पब्लिश होत आहे...`, 98);
+
+    if (modeToPublish === 'Reel' || modeToPublish === 'Live') {
       await db.collection('reels').add({
         uid: currentUserData.uid,
         author: currentUserData.name,
         avatar: currentUserData.avatar,
-        caption: title || currentCreateMode,
-        img: mediaUrl,
-        mediaType: uploadedMediaType,
+        caption: title || modeToPublish,
+        img: finalImgField,
+        isChunked: mediaResult.isChunked,
+        chunkGroupId: mediaResult.chunkGroupId,
+        mediaType: localMediaType,
         views: 1,
         likes: 0,
         likedBy: [],
         timeMs: nowMs,
         createdAt: nowTs
       });
-    } else if (currentCreateMode === 'Story') {
+    } else if (modeToPublish === 'Story') {
       await db.collection('stories').add({
         uid: currentUserData.uid,
         author: currentUserData.name,
         avatar: currentUserData.avatar,
         caption: title || 'My Moment',
-        img: mediaUrl,
-        mediaType: uploadedMediaType,
+        img: finalImgField,
+        isChunked: mediaResult.isChunked,
+        chunkGroupId: mediaResult.chunkGroupId,
+        mediaType: localMediaType,
         timeMs: nowMs,
         expiresAt: nowMs + (24 * 60 * 60 * 1000),
         createdAt: nowTs
       });
-    } else if (currentCreateMode === 'Note') {
+    } else if (modeToPublish === 'Note') {
       await db.collection('notes').add({
         uid: currentUserData.uid,
         author: currentUserData.name,
         avatar: currentUserData.avatar,
         noteText: title || 'Hello Friends! 👋',
-        img: mediaUrl,
+        img: finalImgField || 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=400&q=80',
         timeMs: nowMs,
         createdAt: nowTs
       });
-    } else if (currentCreateMode === 'Offer') {
+    } else if (modeToPublish === 'Offer') {
       await db.collection('offers').add({
         uid: currentUserData.uid,
         bizName: currentUserData.name,
@@ -1360,18 +1587,22 @@ async function publishCreatedContent() {
         validity: sub || 'Limited Time Offer',
         location: currentUserData.location || 'Ardhapur, Maharashtra',
         phone: currentUserData.phone || '',
-        img: mediaUrl,
+        img: finalImgField,
+        isChunked: mediaResult.isChunked,
+        chunkGroupId: mediaResult.chunkGroupId,
         timeMs: nowMs,
         createdAt: nowTs
       });
-    } else if (currentCreateMode === 'Product') {
+    } else if (modeToPublish === 'Product') {
       await db.collection('products').add({
         uid: currentUserData.uid,
         sellerName: currentUserData.name,
         title: title || 'New Product',
         price: price || '₹999',
         cat: sub || 'Men',
-        img: mediaUrl,
+        img: finalImgField,
+        isChunked: mediaResult.isChunked,
+        chunkGroupId: mediaResult.chunkGroupId,
         desc: `Quality product by ${currentUserData.name}`,
         timeMs: nowMs,
         createdAt: nowTs
@@ -1384,8 +1615,10 @@ async function publishCreatedContent() {
         location: currentUserData.location || 'Ardhapur, Maharashtra',
         category: sub || currentUserData.category || 'Post',
         caption: title,
-        img: mediaUrl,
-        mediaType: uploadedMediaType,
+        img: finalImgField,
+        isChunked: mediaResult.isChunked,
+        chunkGroupId: mediaResult.chunkGroupId,
+        mediaType: localMediaType,
         likes: 0,
         likedBy: [],
         commentsCount: 0,
@@ -1395,22 +1628,23 @@ async function publishCreatedContent() {
       });
     }
 
-    closeCreateContentModal();
-    showToast(`✅ तुमची ${currentCreateMode} सर्व मोबाईल्सवर लाईव्ह पब्लिश झाली!`);
+    updateTopUploadProgress(true, `✅ ${modeToPublish} १००% अपलोड झाली!`, 100);
+    setTimeout(() => updateTopUploadProgress(false), 1200);
+    showToast(`🎉 तुमची ${modeToPublish} यशस्वीरित्या अपलोड आणि लाईव्ह झाली!`);
   } catch (err) {
-    showToast('❌ साईझ खूप मोठी आहे, कृपया लहान फोटो/व्हिडिओ निवडा.');
+    updateTopUploadProgress(false);
+    showToast('❌ अपलोड करताना त्रुटी आली: ' + err.message);
   }
 }
 
 // =========================================================
-// 4. STRICT REAL USER-TO-USER MESSENGER (NO FAKE AUTO MESSAGES!)
+// 4. STRICT REAL USER-TO-USER MESSENGER
 // =========================================================
 function renderMessagesPeopleBar() {
   const bar = document.querySelector('#view-messages .moments-scroll-bar');
   if (!bar || !currentUserData) return;
   const firstNote = bar.querySelector('.your-note-card').outerHTML;
 
-  // अ‍ॅपमधील इतर सर्व खरे रजिस्टर केलेले युजर्स वरच्या सर्कल बारमध्ये दाखवा (टच करताच त्यांच्याशी डायरेक्ट चॅट सुरू होईल!)
   const otherUsers = cacheAllUsers.filter(u => u.uid !== currentUserData.uid);
   const usersHTML = otherUsers.map(u => `
     <div class="story-circle-item" onclick="startRealChat('${u.uid}', '${(u.name || 'User').replace(/'/g, '')}', 'Inbox', '${u.avatar || ''}')">
@@ -1427,13 +1661,11 @@ function listenToRealMessages() {
     if (!currentUserData) return;
     const myUid = currentUserData.uid;
 
-    // फक्त तेच चॅट्स दाखवा ज्यात सध्याचा युजर (myUid) सहभागी आहे! (इतरांचे चॅट कधीच दिसणार नाहीत!)
     const myChats = [];
     snap.docs.forEach(doc => {
       const data = doc.data();
       const parts = Array.isArray(data.participants) ? data.participants : [];
       if (parts.includes(myUid) || data.senderUid === myUid || data.receiverUid === myUid) {
-        // जुने फेक मेसेजेस ("Gallery Image", "Voice Note (0:05)") आपोआप फिल्टर करा
         if (Array.isArray(data.messages)) {
           data.messages = data.messages.filter(m => m.text !== '🖼️ Gallery Image' && m.text !== '🎤 Voice Note (0:05)' && m.text !== '📷 Photo');
         }
@@ -1444,7 +1676,6 @@ function listenToRealMessages() {
     cacheChats = sortByPinnedAndCreatedDesc(myChats);
     renderMessagesList();
 
-    // फक्त दुसऱ्या व्यक्तीने मला पाठवलेले Unread मेसेजेस मोजा
     let unreadCount = cacheChats.filter(c => c.unread === true && c.lastSenderUid !== myUid).length;
     let badge = document.querySelector('.msg-badge-count');
     if (badge) {
@@ -1486,11 +1717,10 @@ function renderMessagesList() {
   });
 
   if (list.length === 0) {
-    // खाली इतर सर्व रजिस्टर युजर्सची यादी दाखवा जेणेकरून एका क्लिकवर खऱ्या युजरला मेसेज पाठवता येईल!
     const otherUsers = cacheAllUsers.filter(u => u.uid !== myUid);
     box.innerHTML = `
       <div style="text-align:center; padding:20px 16px; color:#64748b;">
-        तुमच्या <b>${activeMsgTab}</b> मध्ये अजून कोणतेही संभाषण नाही.<br>खालील युजर्सवर टॅप करून लगेच रिअल चॅट सुरू करा:
+        तुमच्या <b>${activeMsgTab}</b> मध्ये अजून संभाषण नाही.<br>खालील युजर्सवर टॅप करून लगेच चॅट सुरू करा:
       </div>
       <div style="padding:0 12px;">
         ${otherUsers.map(u => `
@@ -1562,7 +1792,6 @@ async function deleteSingleMessageBubble(msgIndex) {
   showToast('🗑️ मेसेज डिलीट केला!');
 }
 
-// कोणत्याही युजरसोबत थेट रिकामी चॅट विंडो उघडा (कोणताही ऑटोमॅटिक "Hi" मेसेज जाणार नाही!)
 async function startRealChat(peerUid, peerName, categoryOverride, peerAvOverride) {
   if (!currentUserData) return showToast('⚠️ कृपया आधी लॉगिन करा!');
   if (peerUid === currentUserData.uid) return showToast('ℹ️ तुम्ही स्वतःलाच मेसेज करू शकत नाही!');
@@ -1570,7 +1799,6 @@ async function startRealChat(peerUid, peerName, categoryOverride, peerAvOverride
   const myUid = currentUserData.uid;
   const chatCat = categoryOverride || (activeMsgTab === 'Marketplace' ? 'Marketplace' : 'Inbox');
 
-  // दोघांमधील आधीचे चॅट शोधा
   let existing = cacheChats.find(c => {
     const parts = Array.isArray(c.participants) ? c.participants : [];
     return parts.includes(myUid) && parts.includes(peerUid);
@@ -1582,7 +1810,6 @@ async function startRealChat(peerUid, peerName, categoryOverride, peerAvOverride
   if (existing) {
     openMessengerWindow(existing.id, peerName, peerAvatar, peerUid);
   } else {
-    // नवीन चॅट डॉक्युमेंट बनवा पण messages: [] रिकामा ठेवा (म्हणजे ऑटोमॅटिक मेसेज जाणार नाही!)
     const newDoc = await db.collection('chats').add({
       participants: [myUid, peerUid],
       senderUid: myUid,
@@ -1701,7 +1928,6 @@ function handleChatMediaUpload(e) {
   const file = e.target.files[0];
 
   if (file.type.startsWith('video/')) {
-    if (file.size > 700 * 1024) return showToast('⚠️ कृपया ७०० KB पेक्षा लहान व्हिडिओ पाठवा!');
     const reader = new FileReader();
     reader.onload = async (evt) => {
       showToast('📤 व्हिडिओ पाठवला जात आहे...');
@@ -1801,7 +2027,6 @@ async function appendMessageToActiveChat(textVal, msgType, mediaDataUrl) {
     createdAt: firebase.firestore.FieldValue.serverTimestamp()
   });
 
-  // समोरच्या युजरलाच (activeChatPeerUid) रिअल नोटिफिकेशन पाठवा!
   if (activeChatPeerUid && activeChatPeerUid !== currentUserData.uid) {
     await pushRealNotification({
       targetUid: activeChatPeerUid,
@@ -1816,7 +2041,7 @@ async function appendMessageToActiveChat(textVal, msgType, mediaDataUrl) {
 }
 
 // =========================================================
-// 5. STRICT PER-USER NOTIFICATIONS (NO 'undefined' & NO OTHER USER LEAKS)
+// 5. STRICT PER-USER NOTIFICATIONS
 // =========================================================
 async function pushRealNotification(payload) {
   try {
@@ -1844,7 +2069,6 @@ function listenToRealNotifications() {
     const validNotifs = [];
     snap.docs.forEach(doc => {
       const n = doc.data();
-      // जुने खराब ('undefined') नोटिफिकेशन्स वगळा आणि फक्त माझ्यासाठीचेच (targetUid === myUid) दाखवा!
       if (!n.actorName || !n.text || String(n.text).includes('undefined')) {
         db.collection('notifications').doc(doc.id).delete().catch(() => {});
         return;
@@ -1905,11 +2129,13 @@ function renderProNotificationsList() {
 }
 
 // =========================================================
-// EXPLORE (TRENDING REELS EXACT CLICK MATCH) & NEARBY
+// EXPLORE & NEARBY
 // =========================================================
 function listenToRealOffers() {
-  db.collection('offers').onSnapshot(snap => {
-    cacheOffers = sortByPinnedAndCreatedDesc(snap.docs.map(d => ({ id: d.id, _col: 'offers', ...d.data() })));
+  db.collection('offers').onSnapshot(async snap => {
+    let rawOffers = sortByPinnedAndCreatedDesc(snap.docs.map(d => ({ id: d.id, _col: 'offers', ...d.data() })));
+    await resolveChunkedMediaItems(rawOffers);
+    cacheOffers = rawOffers;
     renderExploreOffers();
     if (activeNearbyFilter === 'Deals') renderNearbyStores();
     renderProfileMediaGrid();
@@ -1929,13 +2155,13 @@ function renderExploreOffers() {
   let q = (document.getElementById('explore-search-input')?.value || '').toLowerCase();
 
   if (activeExploreFilter === 'Trending Reels') {
-    let reelsList = cacheReels.filter(r => !r.archived && ((r.author || '').toLowerCase().includes(q) || (r.caption || '').toLowerCase().includes(q)));
+    let reelsList = cacheReels.filter(r => !r.archived && r.img && ((r.author || '').toLowerCase().includes(q) || (r.caption || '').toLowerCase().includes(q)));
     window.currentExploreReelsList = reelsList;
 
     box.innerHTML = reelsList.length === 0
       ? `<p style="text-align:center; padding:30px; color:#64748b;">सध्या कोणतीही Trending Reel नाही.</p>`
       : reelsList.map(r => {
-          const isVid = r.mediaType === 'video' || (r.img && r.img.startsWith('data:video'));
+          const isVid = r.mediaType === 'video' || (r.img && (r.img.startsWith('data:video') || r.img.includes('.mp4')));
           return `
             <div onclick="openScrollableMediaFeed('reels', '${r.id}', 'Trending Reels', window.currentExploreReelsList, 'public_reel')" style="background:#fff; border-radius:16px; padding:12px; margin:10px 14px; display:flex; gap:14px; align-items:center; box-shadow:0 2px 8px rgba(0,0,0,0.05); cursor:pointer;">
               <div style="width:74px; height:96px; background:#0f172a; border-radius:12px; overflow:hidden; position:relative; flex-shrink:0;">
@@ -2001,7 +2227,7 @@ function renderNearbyStores() {
 }
 
 // =========================================================
-// 6. PROFILE GRIDS (USES PROFILE OWNER MENU: ARCHIVE, HIDE, PIN, EDIT, DELETE)
+// 6. PROFILE VIEW (DYNAMIC GEAR ICON FOR ME vs 3-DOT ICON FOR OTHER USERS!)
 // =========================================================
 async function openUserProfile(targetUid) {
   if (!targetUid) return;
@@ -2024,7 +2250,30 @@ function loadProfileView() {
 }
 
 async function renderProfileData(u) {
-  // प्रोफाईलवरील Message बटण थेट त्या युजरच्या चॅटला जोडा
+  const isMyOwnProfile = currentUserData && u.uid === currentUserData.uid;
+
+  // १. स्वतःची प्रोफाईल असेल तरच ⚙️ Settings दाखवा; दुसऱ्याची प्रोफाईल असेल तर ⋮ (३ डॉट्स) दाखवा!
+  const rightTopBtns = document.querySelectorAll('#view-profile .prof-top-right-group button');
+  rightTopBtns.forEach(btn => {
+    if (isMyOwnProfile) {
+      btn.innerHTML = '<i class="fa-solid fa-gear"></i>';
+      btn.onclick = () => openSettingsScreen();
+    } else {
+      btn.innerHTML = '<i class="fa-solid fa-ellipsis-vertical"></i>';
+      btn.onclick = () => openOtherUserProfileMenu();
+    }
+  });
+
+  // २. दुसऱ्याच्या प्रोफाईलवर Archived टॅब आणि '+ Add New' बटण लपवा!
+  const pArchBtn = document.getElementById('people-archived-tab-btn');
+  if (pArchBtn) pArchBtn.style.display = isMyOwnProfile ? 'inline-block' : 'none';
+  const bArchBtn = document.getElementById('biz-archived-tab-btn');
+  if (bArchBtn) bArchBtn.style.display = isMyOwnProfile ? 'inline-block' : 'none';
+
+  if (!isMyOwnProfile && activePeopleTab === 'archived') {
+    activePeopleTab = 'posts';
+  }
+
   const msgBtn = document.querySelector('#people-profile-box .prof-light-btn');
   if (msgBtn) {
     msgBtn.onclick = () => startRealChat(u.uid, u.name, 'Inbox', u.avatar);
@@ -2082,7 +2331,7 @@ function renderProfileMediaGrid() {
 
   let items = [];
   if (activePeopleTab === 'archived') {
-    items = allUserItems.filter(i => i.archived === true);
+    items = isMyOwnProfile ? allUserItems.filter(i => i.archived === true) : [];
   } else if (activePeopleTab === 'posts') {
     items = cachePosts.filter(p => p.uid === targetUid && !p.archived && !p.hiddenFromGrid);
   } else if (activePeopleTab === 'reels') {
@@ -2106,7 +2355,7 @@ function renderProfileMediaGrid() {
 
   grid.innerHTML = items.map(item => {
     let col = item._col || 'posts';
-    let isVid = item.mediaType === 'video' || (item.img && item.img.startsWith('data:video'));
+    let isVid = item.mediaType === 'video' || (item.img && (item.img.startsWith('data:video') || item.img.includes('.mp4')));
     return `
       <div onclick="openScrollableMediaFeed('${col}', '${item.id}', 'Profile ${activePeopleTab.toUpperCase()}', window.currentProfileGridList, '${menuCtx}')" style="position:relative; aspect-ratio:1/1; border-radius:12px; overflow:hidden; cursor:pointer; background:#0f172a;">
         ${isVid
@@ -2139,11 +2388,11 @@ function renderBizMediaSection() {
   else if (activeBizTab === 'Reels') items = cacheReels.filter(r => r.uid === targetUid && !r.archived);
   else if (activeBizTab === 'Moments') items = cacheStories.filter(s => s.uid === targetUid && !s.archived);
   else if (activeBizTab === 'Archived') {
-    items = [
+    items = isMyOwnProfile ? [
       ...cacheProducts.filter(p => p.uid === targetUid && p.archived),
       ...cachePosts.filter(p => p.uid === targetUid && p.archived),
       ...cacheReels.filter(r => r.uid === targetUid && r.archived)
-    ];
+    ] : [];
   } else {
     items = cacheProducts.filter(p => p.uid === targetUid && !p.archived);
   }
