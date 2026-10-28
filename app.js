@@ -965,7 +965,39 @@ function getCacheArrayByCol(col) {
   return cachePosts;
 }
 
-async function toggleLikeDislikeItem(itemId, colName = 'posts') // =========================================================
+async function toggleLikeDislikeItem(itemId, colName = 'posts') {
+  if (!currentUserData) return showToast('⚠️ कृपया आधी लॉगिन करा!');
+  const arr = getCacheArrayByCol(colName);
+  const item = arr.find(x => x.id === itemId);
+  if (!item) return;
+
+  const myUid = currentUserData.uid;
+  let likedBy = Array.isArray(item.likedBy) ? [...item.likedBy] : [];
+  let currentLikes = typeof item.likes === 'number' ? item.likes : likedBy.length;
+
+  if (likedBy.includes(myUid)) {
+    likedBy = likedBy.filter(id => id !== myUid);
+    currentLikes = Math.max(0, currentLikes - 1);
+    await db.collection(colName).doc(itemId).update({ likedBy, likes: currentLikes });
+  } else {
+    likedBy.push(myUid);
+    currentLikes = currentLikes + 1;
+    await db.collection(colName).doc(itemId).update({ likedBy, likes: currentLikes });
+
+    if (item.uid && item.uid !== myUid) {
+      await pushRealNotification({
+        targetUid: item.uid,
+        type: 'like',
+        actorUid: currentUserData.uid,
+        actorName: currentUserData.name,
+        actorHandle: currentUserData.handle || '@' + currentUserData.name.toLowerCase().replace(/\s+/g, ''),
+        actorAvatar: currentUserData.avatar,
+        text: `liked your ${colName.slice(0, -1)}: "${(item.caption || 'Media').substring(0, 22)}"`
+      });
+    }
+  }
+}
+// =========================================================
 // INSTAGRAM REELS FULLSCREEN VERTICAL PLAYER (PART 2)
 // =========================================================
 function openScrollableMediaFeed(colName, startId, headerTitle, customList, menuContext = 'public_reel') {
@@ -2801,4 +2833,3 @@ function closeImageLightbox() {
 function openGoogleMapLink(query) {
   window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query || 'Ardhapur, Maharashtra')}`, '_blank');
 }
-
