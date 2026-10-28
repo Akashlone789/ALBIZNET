@@ -1,8 +1,8 @@
 // =========================================================
-// ALBIZNET - ULTIMATE REAL-TIME ENGINE v5.0 (app.js)
-// Other User Profile 3-Dot Menu (Restrict, Block, Report...) |
-// Unlimited Video/Reel Chunk Uploader (No 700KB Alert!) |
-// Instant Modal Close + Top Upload Progress Bar | Smooth Continuous Reel Snap Scroll
+// ALBIZNET - ULTIMATE REAL-TIME ENGINE v6.0 (app.js - PART 1)
+// Other User Profile 3-Dot Menu | Unlimited Video/Reel Chunk Uploader |
+// Inbox Long-Press Menu (Reminder, Read/Unread, Pin, Clear, Delete) |
+// Auto-Remove Unread & Request Accept/Reject | Business Marketplace Tab
 // =========================================================
 
 let auth = null;
@@ -31,6 +31,10 @@ let activeChatPeerAvatar = '';
 let activeChatPeerUid = '';
 let activeCommentPostId = null;
 let activeCommentCollection = 'posts';
+
+// Inbox Long-Press Menu State
+let chatLongPressTimer = null;
+let selectedChatForMenu = null;
 
 // IG Action Menu Target & Context ('public_reel' vs 'profile_owner')
 let activeMenuTarget = { id: null, col: 'posts', context: 'profile_owner' };
@@ -171,12 +175,11 @@ function showToast(msg) {
 }
 
 // =========================================================
-// DYNAMIC PRO UI INJECTOR (UPLOAD PROGRESS BAR, OTHER PROFILE 3-DOT MENU, REELS VIEWER)
+// DYNAMIC PRO UI INJECTOR (MODALS, PROGRESS BAR, LONG-PRESS MENU)
 // =========================================================
 function injectProModalsIntoDOM() {
   if (document.getElementById('pro-messenger-modal')) return;
 
-  // स्मूथ स्क्रोलिंगसाठी CSS नियम जोडा
   const styleTag = document.createElement('style');
   styleTag.innerHTML = `
     #pro-scroll-feed-body {
@@ -206,7 +209,7 @@ function injectProModalsIntoDOM() {
     <input type="file" id="chat-camera-input" accept="image/*,video/*" capture="environment" style="display:none;" onchange="handleChatMediaUpload(event)">
     <input type="file" id="chat-gallery-input" accept="image/*,video/*" style="display:none;" onchange="handleChatMediaUpload(event)">
 
-    <!-- 0. LIVE UPLOAD PROGRESS BAR BANNER (TOP FLOATING) -->
+    <!-- 0. LIVE UPLOAD PROGRESS BAR BANNER -->
     <div id="pro-upload-progress-Banner" style="display:none; position:fixed; top:12px; left:14px; right:14px; background:#0f172a; color:#ffffff; padding:12px 16px; border-radius:16px; z-index:9500; box-shadow:0 8px 25px rgba(0,0,0,0.35); font-family:'Poppins', sans-serif; align-items:center; gap:12px;">
       <i class="fa-solid fa-cloud-arrow-up fa-bounce" style="color:#38bdf8; font-size:20px;"></i>
       <div style="flex:1;">
@@ -271,6 +274,35 @@ function injectProModalsIntoDOM() {
       </div>
     </div>
 
+    <!-- 1B. INBOX CHAT LONG-PRESS OPTIONS MODAL (Set Reminder, Read/Unread, Pin, Clear, Delete) -->
+    <div id="pro-chat-longpress-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:7200; align-items:flex-end; justify-content:center; font-family:'Poppins', sans-serif;" onclick="closeChatLongPressMenu()">
+      <div style="background:#ffffff; width:100%; max-width:480px; border-radius:24px 24px 0 0; padding:12px 0 26px; box-shadow:0 -4px 25px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
+        <div style="width:42px; height:4px; background:#cbd5e1; border-radius:4px; margin:4px auto 12px;"></div>
+        <div id="lp-chat-title" style="padding:4px 24px 12px; font-weight:800; font-size:16px; color:#0f172a; border-bottom:1px solid #f1f5f9;">Chat Options</div>
+        
+        <div style="display:flex; flex-direction:column; font-size:15px; font-weight:500; color:#0f172a; padding-top:6px;">
+          <div onclick="handleChatLongPressAction('reminder')" style="display:flex; align-items:center; gap:16px; padding:13px 24px; cursor:pointer;">
+            <i class="fa-regular fa-bell" style="width:22px; font-size:18px; color:#2563eb;"></i> <span>Set Reminder</span>
+          </div>
+          <div onclick="handleChatLongPressAction('toggle_read')" style="display:flex; align-items:center; gap:16px; padding:13px 24px; cursor:pointer;">
+            <i class="fa-regular fa-envelope-open" style="width:22px; font-size:18px; color:#0f172a;"></i> <span>Mark as Read / Unread</span>
+          </div>
+          <div onclick="handleChatLongPressAction('pin')" style="display:flex; align-items:center; gap:16px; padding:13px 24px; cursor:pointer;">
+            <i class="fa-solid fa-thumbtack" style="width:22px; font-size:18px; color:#0f172a;"></i> <span>Pin / Unpin Chat</span>
+          </div>
+          <div onclick="handleChatLongPressAction('mute')" style="display:flex; align-items:center; gap:16px; padding:13px 24px; cursor:pointer;">
+            <i class="fa-regular fa-bell-slash" style="width:22px; font-size:18px; color:#0f172a;"></i> <span>Mute Notifications</span>
+          </div>
+          <div onclick="handleChatLongPressAction('clear')" style="display:flex; align-items:center; gap:16px; padding:13px 24px; cursor:pointer; color:#f59e0b;">
+            <i class="fa-solid fa-broom" style="width:22px; font-size:18px; color:#f59e0b;"></i> <span>Clear All Messages</span>
+          </div>
+          <div onclick="handleChatLongPressAction('delete')" style="display:flex; align-items:center; gap:16px; padding:13px 24px; cursor:pointer; color:#dc2626; font-weight:700; border-top:1px solid #f1f5f9; margin-top:4px;">
+            <i class="fa-regular fa-trash-can" style="width:22px; font-size:18px; color:#dc2626;"></i> <span>Delete Entire Chat</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <!-- 2. INSTAGRAM REELS STYLE FULLSCREEN VERTICAL SCROLL PLAYER -->
     <div id="pro-scroll-feed-modal" style="display:none; position:fixed; inset:0; background:#000000; z-index:6200; flex-direction:column; font-family:'Poppins', sans-serif;">
       <div style="position:fixed; top:0; left:0; right:0; z-index:6210; display:flex; align-items:center; justify-content:space-between; padding:14px 16px; background:linear-gradient(rgba(0,0,0,0.75), transparent); color:#fff; pointer-events:none;">
@@ -282,7 +314,7 @@ function injectProModalsIntoDOM() {
       <div id="pro-scroll-feed-body" style="flex:1; width:100%; display:flex; flex-direction:column;"></div>
     </div>
 
-    <!-- 3A. OTHER USER PROFILE 3-DOT MENU (EXACT LIKE SCREENSHOT 2: Restrict, Block, Report, About, Shared Activity, Hide Story, Copy URL, Share Profile, QR Code) -->
+    <!-- 3A. OTHER USER PROFILE 3-DOT MENU -->
     <div id="pro-other-user-menu-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:6900; align-items:flex-end; justify-content:center; font-family:'Poppins', sans-serif;" onclick="closeAllActionMenus()">
       <div style="background:#ffffff; width:100%; max-width:480px; border-radius:24px 24px 0 0; padding:10px 0 26px; box-shadow:0 -4px 25px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
         <div style="width:42px; height:4px; background:#64748b; border-radius:4px; margin:4px auto 16px;"></div>
@@ -360,7 +392,7 @@ function injectProModalsIntoDOM() {
       </div>
     </div>
 
-    <!-- 3C. PROFILE OWNER 3-DOT MENU (Archive, Hide Likes, Turn Off Comments, Edit, Pin, Remove Grid, Delete) -->
+    <!-- 3C. PROFILE OWNER 3-DOT MENU -->
     <div id="pro-ig-action-modal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.6); z-index:6800; align-items:flex-end; justify-content:center; font-family:'Poppins', sans-serif;" onclick="closeAllActionMenus()">
       <div style="background:#ffffff; width:100%; max-width:480px; max-height:85vh; border-radius:24px 24px 0 0; overflow-y:auto; padding:10px 0 24px; box-shadow:0 -4px 25px rgba(0,0,0,0.2);" onclick="event.stopPropagation()">
         <div style="width:42px; height:4px; background:#cbd5e1; border-radius:4px; margin:4px auto 14px;"></div>
@@ -716,7 +748,6 @@ function getRelativeTime(ms) {
   return Math.floor(diff / 604800) + 'w';
 }
 
-// मोठ्या व्हिडिओंचे तुकडे (Chunks) जोडून सलग व्हिडिओ तयार करणारी सिस्टीम
 const resolvedChunkMediaCache = {};
 async function resolveChunkedMediaItems(items) {
   for (let item of items) {
@@ -744,6 +775,7 @@ function listenToAllUsersDirectory() {
     cacheBusinesses = cacheAllUsers.filter(u => u.type === 'business');
     renderNearbyStores();
     renderMessagesPeopleBar();
+    if (activeMsgTab === 'Marketplace') renderMessagesList();
   });
 }
 
@@ -800,10 +832,13 @@ function listenToRealPostsAndReels() {
     renderProfileMediaGrid();
   });
 
-  db.collection('products').onSnapshot(snap => {
-    cacheProducts = sortByPinnedAndCreatedDesc(snap.docs.map(d => ({ id: d.id, _col: 'products', ...d.data() })));
+  db.collection('products').onSnapshot(async snap => {
+    let rawProds = sortByPinnedAndCreatedDesc(snap.docs.map(d => ({ id: d.id, _col: 'products', ...d.data() })));
+    await resolveChunkedMediaItems(rawProds);
+    cacheProducts = rawProds;
     renderCatalogGrid();
     renderBizMediaSection();
+    if (activeMsgTab === 'Marketplace') renderMessagesList();
   });
 }
 
@@ -930,54 +965,19 @@ function getCacheArrayByCol(col) {
   return cachePosts;
 }
 
-async function toggleLikeDislikeItem(itemId, colName = 'posts') {
-  if (!currentUserData) return showToast('⚠️ कृपया आधी लॉगिन करा!');
-  const arr = getCacheArrayByCol(colName);
-  const item = arr.find(x => x.id === itemId);
-  if (!item) return;
-
-  const myUid = currentUserData.uid;
-  let likedBy = Array.isArray(item.likedBy) ? [...item.likedBy] : [];
-  let currentLikes = typeof item.likes === 'number' ? item.likes : likedBy.length;
-
-  if (likedBy.includes(myUid)) {
-    likedBy = likedBy.filter(id => id !== myUid);
-    currentLikes = Math.max(0, currentLikes - 1);
-    await db.collection(colName).doc(itemId).update({ likedBy, likes: currentLikes });
-  } else {
-    likedBy.push(myUid);
-    currentLikes = currentLikes + 1;
-    await db.collection(colName).doc(itemId).update({ likedBy, likes: currentLikes });
-
-    if (item.uid && item.uid !== myUid) {
-      await pushRealNotification({
-        targetUid: item.uid,
-        type: 'like',
-        actorUid: currentUserData.uid,
-        actorName: currentUserData.name,
-        actorHandle: currentUserData.handle || '@' + currentUserData.name.toLowerCase().replace(/\s+/g, ''),
-        actorAvatar: currentUserData.avatar,
-        text: `liked your ${colName.slice(0, -1)}: "${(item.caption || 'Media').substring(0, 22)}"`
-      });
-    }
-  }
-}
-
-// =========================================================
-// INSTAGRAM REELS FULLSCREEN VERTICAL PLAYER (1 SWIPE = 1 REEL, CONTINUOUS SWIPE = ALL REELS)
+async function toggleLikeDislikeItem(itemId, colName = 'posts') // =========================================================
+// INSTAGRAM REELS FULLSCREEN VERTICAL PLAYER (PART 2)
 // =========================================================
 function openScrollableMediaFeed(colName, startId, headerTitle, customList, menuContext = 'public_reel') {
   let raw = customList || getCacheArrayByCol(colName).filter(i => !i.archived && i.img);
   if (!raw || raw.length === 0) return;
 
-  // ज्या रीलवर क्लिक केले आहे ती पहिली आणि तिच्या खाली बाकी सर्व रील्स अखंडपणे (Continuous Scroll) जोडल्या जातील!
   const clickedIndex = raw.findIndex(x => String(x.id) === String(startId));
   let ordered = [...raw];
   if (clickedIndex > 0) {
     ordered = [...raw.slice(clickedIndex), ...raw.slice(0, clickedIndex)];
   }
 
-  // जर फक्त १ किंवा २ रील्स असतील, तर सर्व पोस्ट्स आणि रील्स खाली जोडा जेणेकरून युजर कितीही वेळा खाली स्क्रोल करू शकेल!
   if (colName === 'reels' && ordered.length < 5) {
     const extraMedia = cachePosts.filter(p => !p.archived && p.img && !ordered.some(o => o.id === p.id));
     ordered = [...ordered, ...extraMedia];
@@ -1011,7 +1011,6 @@ function openScrollableMediaFeed(colName, startId, headerTitle, customList, menu
           : `<img src="${item.img}" style="width:100%; height:100%; object-fit:contain; background:#000;">`
         }
 
-        <!-- Right Side Instagram Reels Action Bar -->
         <div style="position:absolute; right:14px; bottom:44px; display:flex; flex-direction:column; align-items:center; gap:20px; z-index:5;">
           <div onclick="toggleLikeDislikeItem('${item.id}', '${col}')" style="text-align:center; color:#fff; cursor:pointer; text-shadow:0 2px 6px rgba(0,0,0,0.85);">
             <i class="${isLiked ? 'fa-solid' : 'fa-regular'} fa-heart" style="font-size:28px; color:${isLiked ? '#ef4444' : '#ffffff'};"></i>
@@ -1041,7 +1040,6 @@ function openScrollableMediaFeed(colName, startId, headerTitle, customList, menu
           </div>
         </div>
 
-        <!-- Bottom Left Author Info & Follow Button -->
         <div style="position:absolute; bottom:28px; left:14px; right:76px; color:#fff; text-shadow:0 1px 4px rgba(0,0,0,0.9); z-index:4; pointer-events:auto;">
           <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
             <img src="${authorAv}" onclick="closeScrollableFeedModal(); openUserProfile('${item.uid}')" style="width:38px; height:38px; border-radius:50%; object-fit:cover; border:1.5px solid #fff; cursor:pointer;">
@@ -1102,7 +1100,7 @@ function closeScrollableFeedModal() {
 }
 
 // =========================================================
-// SEPARATE 3-DOT MENUS: OTHER USER PROFILE MENU vs PUBLIC REEL MENU vs OWNER MENU
+// SEPARATE 3-DOT MENUS: OTHER PROFILE vs PUBLIC REEL vs OWNER
 // =========================================================
 function openOtherUserProfileMenu() {
   document.getElementById('pro-other-user-menu-modal').style.display = 'flex';
@@ -1356,7 +1354,7 @@ async function shareRealPost(postId, caption) {
 }
 
 // =========================================================
-// 3. UNLIMITED VIDEO & PHOTO UPLOADER (NO 700KB ALERT + INSTANT MODAL CLOSE + PROGRESS BAR)
+// 3. UNLIMITED VIDEO & PHOTO UPLOADER (PROGRESS BAR + CHUNKS)
 // =========================================================
 function toggleCreatePopupMenu(e) {
   if (e) e.stopPropagation();
@@ -1399,7 +1397,6 @@ function closeCreateContentModal() {
   document.getElementById('create-content-modal').style.display = 'none';
 }
 
-// कोणताही व्हिडिओ किंवा फोटो निवडल्यावर कोणताही साईझ एरर न दाखवता लगेच स्वीकारणे!
 function handleFileSelect(e) {
   if (!e.target.files || !e.target.files[0]) return;
   let file = e.target.files[0];
@@ -1448,17 +1445,14 @@ function updateTopUploadProgress(visible, titleText, pct) {
   document.getElementById('up-prog-bar').style.width = `${pct}%`;
 }
 
-// मोठा व्हिडिओ आपोआप Firebase Storage किंवा Multi-Chunk Firestore मध्ये सेव्ह करणारे इंजिन
 async function uploadLargeMediaSmart(modeLabel, rawFile, dataUrl) {
   if (!dataUrl) return { url: 'https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=700&q=80', isChunked: false, chunkGroupId: '' };
 
-  // १. जर छोटा फोटो/व्हिडिओ असेल (< 650 KB), तर थेट सेव्ह करा
   if (dataUrl.length < 650000) {
     updateTopUploadProgress(true, `📤 ${modeLabel} अपलोड होत आहे...`, 65);
     return { url: dataUrl, isChunked: false, chunkGroupId: '' };
   }
 
-  // २. आधी Firebase Cloud Storage वापरून पहा (चालू असल्यास)
   if (storage && rawFile) {
     try {
       const ext = rawFile.name ? rawFile.name.split('.').pop() : 'mp4';
@@ -1481,12 +1475,9 @@ async function uploadLargeMediaSmart(modeLabel, rawFile, dataUrl) {
         );
       });
       return { url: downloadUrl, isChunked: false, chunkGroupId: '' };
-    } catch (storageErr) {
-      // जर Storage नसेल तर खालील Multi-Chunk इंजिन आपोआप काम करेल!
-    }
+    } catch (storageErr) {}
   }
 
-  // ३. Multi-Chunk Firestore Engine (कोणत्याही मोठ्या व्हिडिओचे ६०० KB चे तुकडे करून सर्व मोबाईलसाठी सेव्ह करणे!)
   const chunkSize = 600000;
   const totalChunks = Math.ceil(dataUrl.length / chunkSize);
   const groupId = 'media_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
@@ -1524,10 +1515,7 @@ async function publishCreatedContent() {
     return showToast('⚠️ कृपया माहिती लिहा किंवा फोटो/व्हिडिओ निवडा!');
   }
 
-  // १. बटन दाबताच पॉप-अप लगेच बंद करा!
   closeCreateContentModal();
-
-  // २. वरच्या बाजूला लाईव्ह अपलोड प्रोग्रेस बार सुरू करा!
   updateTopUploadProgress(true, `📤 तुमची ${modeToPublish} अपलोड होत आहे...`, 15);
 
   const nowTs = firebase.firestore.FieldValue.serverTimestamp();
@@ -1638,7 +1626,7 @@ async function publishCreatedContent() {
 }
 
 // =========================================================
-// 4. STRICT REAL USER-TO-USER MESSENGER
+// 4. STRICT REAL USER-TO-USER MESSENGER (LONG-PRESS, UNREAD AUTO-REMOVE, MARKETPLACE BIZ, REQUESTS)
 // =========================================================
 function renderMessagesPeopleBar() {
   const bar = document.querySelector('#view-messages .moments-scroll-bar');
@@ -1676,7 +1664,7 @@ function listenToRealMessages() {
     cacheChats = sortByPinnedAndCreatedDesc(myChats);
     renderMessagesList();
 
-    let unreadCount = cacheChats.filter(c => c.unread === true && c.lastSenderUid !== myUid).length;
+    let unreadCount = cacheChats.filter(c => c.unread === true && c.lastSenderUid !== myUid && !c.isRequest && c.chatCategory !== 'Request').length;
     let badge = document.querySelector('.msg-badge-count');
     if (badge) {
       badge.innerText = unreadCount;
@@ -1697,34 +1685,204 @@ function switchMsgTab(tabName, el) {
   renderMessagesList();
 }
 
+// Long-Press (Tap & Hold) फंक्शन्स
+function startChatLongPress(chatId, peerName) {
+  clearTimeout(chatLongPressTimer);
+  chatLongPressTimer = setTimeout(() => {
+    openChatLongPressMenu(chatId, peerName);
+  }, 550);
+}
+
+function cancelChatLongPress() {
+  clearTimeout(chatLongPressTimer);
+}
+
+function openChatLongPressMenu(chatId, peerName) {
+  selectedChatForMenu = { id: chatId, name: peerName };
+  const titleEl = document.getElementById('lp-chat-title');
+  if (titleEl) titleEl.innerText = peerName || 'Chat Options';
+  const modal = document.getElementById('pro-chat-longpress-modal');
+  if (modal) modal.style.display = 'flex';
+}
+
+function closeChatLongPressMenu() {
+  const modal = document.getElementById('pro-chat-longpress-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+async function handleChatLongPressAction(action) {
+  closeChatLongPressMenu();
+  if (!selectedChatForMenu || !selectedChatForMenu.id) return;
+  const { id, name } = selectedChatForMenu;
+  const chatDoc = cacheChats.find(c => c.id === id);
+
+  if (action === 'reminder') {
+    const mins = prompt(`⏰ ${name} साठी किती मिनिटांचा Reminder लावायचा आहे? (उदा. 5, 15, 30):`, '10');
+    if (mins && !isNaN(mins)) {
+      const ms = parseFloat(mins) * 60 * 1000;
+      await db.collection('chats').doc(id).update({ reminderText: `⏰ ${mins}m` });
+      showToast(`⏰ ${name} च्या चॅटसाठी ${mins} मिनिटांचा Reminder सेट केला!`);
+      setTimeout(() => {
+        showToast(`🔔 REMINDER: ${name} ला मेसेज करण्याची वेळ झाली आहे!`);
+        alert(`🔔 Chat Reminder:\n${name} सोबत संवाद साधण्याची तुमची वेळ झाली आहे!`);
+      }, ms);
+      renderMessagesList();
+    }
+  } else if (action === 'toggle_read') {
+    if (!chatDoc) return;
+    const newUnread = !chatDoc.unread;
+    await db.collection('chats').doc(id).update({
+      unread: newUnread,
+      lastSenderUid: newUnread ? 'other' : (currentUserData ? currentUserData.uid : '')
+    });
+    showToast(newUnread ? '📩 चॅट Unread म्हणून मार्क केले!' : '✅ चॅट Read म्हणून मार्क केले!');
+  } else if (action === 'pin') {
+    if (!chatDoc) return;
+    const newPin = !chatDoc.pinned;
+    await db.collection('chats').doc(id).update({ pinned: newPin });
+    showToast(newPin ? '📌 चॅट सर्वात वर Pin केले!' : '📌 चॅट Unpin केले!');
+  } else if (action === 'mute') {
+    showToast(`🔕 ${name} चे नोटिफिकेशन्स Mute केले!`);
+  } else if (action === 'clear') {
+    if (!confirm(`🧹 ${name} मधील सर्व मेसेज पुसून टाकायचे (Clear All) का?`)) return;
+    await db.collection('chats').doc(id).update({
+      messages: [],
+      lastMessage: '🧹 Messages cleared',
+      unread: false
+    });
+    showToast('🧹 सर्व मेसेजेस Clear केले गेले!');
+  } else if (action === 'delete') {
+    await deleteChatFromList(id);
+  }
+}
+
+// Request Accept आणि Reject केल्यावर ऑटोमॅटिक Remove होणे
+async function acceptMessageRequest(chatId, peerName) {
+  try {
+    const idx = cacheChats.findIndex(c => c.id === chatId);
+    if (idx > -1) {
+      cacheChats[idx].chatCategory = 'Inbox';
+      cacheChats[idx].isRequest = false;
+    }
+    renderMessagesList();
+
+    await db.collection('chats').doc(chatId).update({
+      chatCategory: 'Inbox',
+      isRequest: false,
+      unread: false
+    });
+    showToast(`✅ ${peerName} ची रिक्वेस्ट Accept झाली! आता ती Inbox मध्ये दिसेल.`);
+  } catch (e) {
+    showToast('❌ Error: ' + e.message);
+  }
+}
+
+async function rejectMessageRequest(chatId, peerName) {
+  try {
+    cacheChats = cacheChats.filter(c => c.id !== chatId);
+    renderMessagesList();
+
+    await db.collection('chats').doc(chatId).delete();
+    showToast(`🚫 ${peerName} ची मेसेज रिक्वेस्ट Reject आणि Remove केली!`);
+  } catch (e) {
+    showToast('❌ Error: ' + e.message);
+  }
+}
+
 function renderMessagesList() {
   let box = document.getElementById('messages-chat-list');
   if (!box || !currentUserData) return;
   let q = (document.getElementById('msg-search-input')?.value || '').toLowerCase();
   const myUid = currentUserData.uid;
 
+  // १. जर टॅब 'Marketplace' असेल तर चॅट नाही, फक्त BUSINESS STORES & PRODUCTS दाखवा!
+  if (activeMsgTab === 'Marketplace') {
+    const bizStores = cacheBusinesses.filter(b =>
+      (b.name || '').toLowerCase().includes(q) ||
+      (b.category || '').toLowerCase().includes(q) ||
+      (b.location || '').toLowerCase().includes(q)
+    );
+    const bizProducts = cacheProducts.filter(p =>
+      !p.archived && (
+        (p.title || '').toLowerCase().includes(q) ||
+        (p.sellerName || '').toLowerCase().includes(q)
+      )
+    );
+
+    box.innerHTML = `
+      <div style="padding:10px 14px;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <h4 style="margin:0; font-size:15px; font-weight:800; color:#0f172a;">🏪 Verified Business Stores (${bizStores.length})</h4>
+          <button onclick="openCreateContentModal('Product')" style="background:#2563eb; color:#fff; border:none; padding:5px 12px; border-radius:10px; font-size:12px; font-weight:700; cursor:pointer;">+ Sell Product</button>
+        </div>
+
+        ${bizStores.length === 0 ? `<div style="padding:14px; background:#fff; border-radius:12px; color:#64748b; font-size:13px; text-align:center;">अजून कोणतेही Business Store नाही.</div>` : `
+          <div style="display:flex; gap:12px; overflow-x:auto; padding-bottom:8px;">
+            ${bizStores.map(b => `
+              <div onclick="openUserProfile('${b.uid}')" style="min-width:145px; background:#fff; padding:12px; border-radius:16px; box-shadow:0 2px 8px rgba(0,0,0,0.05); text-align:center; cursor:pointer; flex-shrink:0;">
+                <img src="${b.avatar}" style="width:56px; height:56px; border-radius:14px; object-fit:cover; margin-bottom:6px;">
+                <div style="font-weight:800; font-size:13.5px; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${b.name}</div>
+                <div style="font-size:11px; color:#4f46e5; font-weight:700; margin-bottom:8px;">${b.category || 'Business'}</div>
+                <button style="background:#f1f5f9; color:#0f172a; border:none; width:100%; padding:6px 0; border-radius:8px; font-size:11.5px; font-weight:700; cursor:pointer;">Visit Store ➔</button>
+              </div>
+            `).join('')}
+          </div>
+        `}
+
+        <h4 style="margin:16px 0 10px; font-size:15px; font-weight:800; color:#0f172a;">🛍️ Business Marketplace Catalog (${bizProducts.length})</h4>
+        ${bizProducts.length === 0 ? `<div style="padding:24px; background:#fff; border-radius:14px; color:#64748b; font-size:13px; text-align:center;">मार्केटप्लेसमध्ये अजून प्रॉडक्ट्स नाहीत.</div>` : `
+          <div style="display:grid; grid-template-columns:repeat(2, 1fr); gap:10px;">
+            ${bizProducts.map(p => `
+              <div onclick="openProductDetail('${p.id}')" style="background:#fff; border-radius:14px; padding:10px; box-shadow:0 2px 8px rgba(0,0,0,0.05); cursor:pointer;">
+                <img src="${p.img}" style="width:100%; height:115px; object-fit:cover; border-radius:10px;">
+                <div style="font-weight:800; font-size:13.5px; color:#0f172a; margin-top:6px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${p.title}</div>
+                <div style="color:#2563eb; font-weight:900; font-size:14px; margin:2px 0;">${p.price || '₹999'}</div>
+                <div style="font-size:11px; color:#64748b;">🏪 ${p.sellerName || 'Business Store'}</div>
+              </div>
+            `).join('')}
+          </div>
+        `}
+      </div>
+    `;
+    return;
+  }
+
+  // २. INBOX, UNREAD, आणि REQUEST फिल्टरिंग
   let list = cacheChats.filter(m => {
     let matchQ = (m.senderName || '').toLowerCase().includes(q) ||
                  (m.receiverName || '').toLowerCase().includes(q) ||
                  (m.lastMessage || '').toLowerCase().includes(q);
     if (!matchQ) return false;
 
-    const cat = m.chatCategory || 'Inbox';
-    if (activeMsgTab === 'Unread') return m.unread === true && m.lastSenderUid !== myUid;
-    if (activeMsgTab === 'Marketplace') return cat === 'Marketplace';
-    if (activeMsgTab === 'Request') return cat === 'Request' || m.isRequest === true;
-    return cat !== 'Request';
+    const isReq = (m.chatCategory === 'Request' || m.isRequest === true);
+
+    if (activeMsgTab === 'Request') {
+      return isReq;
+    }
+    if (activeMsgTab === 'Unread') {
+      return !isReq && m.unread === true && m.lastSenderUid !== myUid;
+    }
+    return !isReq;
   });
 
   if (list.length === 0) {
+    if (activeMsgTab === 'Unread') {
+      box.innerHTML = `<div style="text-align:center; padding:40px 16px; color:#64748b;">🎉 तुमचे सर्व मेसेज वाचून झाले आहेत! <b>Unread</b> मध्ये कोणताही मेसेज शिल्लक नाही.</div>`;
+      return;
+    }
+    if (activeMsgTab === 'Request') {
+      box.innerHTML = `<div style="text-align:center; padding:40px 16px; color:#64748b;">📩 सध्या कोणतीही नवीन <b>Message Request</b> नाही.</div>`;
+      return;
+    }
+
     const otherUsers = cacheAllUsers.filter(u => u.uid !== myUid);
     box.innerHTML = `
       <div style="text-align:center; padding:20px 16px; color:#64748b;">
-        तुमच्या <b>${activeMsgTab}</b> मध्ये अजून संभाषण नाही.<br>खालील युजर्सवर टॅप करून लगेच चॅट सुरू करा:
+        तुमच्या <b>Inbox</b> मध्ये अजून संभाषण नाही.<br>खालील युजर्सवर टॅप करून लगेच चॅट सुरू करा:
       </div>
       <div style="padding:0 12px;">
         ${otherUsers.map(u => `
-          <div onclick="startRealChat('${u.uid}', '${(u.name || 'User').replace(/'/g, '')}', '${activeMsgTab === 'Marketplace' ? 'Marketplace' : 'Inbox'}', '${u.avatar || ''}')" style="display:flex; align-items:center; gap:12px; padding:10px 14px; margin-bottom:8px; background:#fff; border-radius:14px; box-shadow:0 2px 6px rgba(0,0,0,0.04); cursor:pointer;">
+          <div onclick="startRealChat('${u.uid}', '${(u.name || 'User').replace(/'/g, '')}', 'Inbox', '${u.avatar || ''}')" style="display:flex; align-items:center; gap:12px; padding:10px 14px; margin-bottom:8px; background:#fff; border-radius:14px; box-shadow:0 2px 6px rgba(0,0,0,0.04); cursor:pointer;">
             <img src="${u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'U')}`}" style="width:44px; height:44px; border-radius:50%; object-fit:cover;">
             <div style="flex:1;">
               <div style="font-weight:800; font-size:14.5px; color:#0f172a;">${u.name}</div>
@@ -1738,6 +1896,7 @@ function renderMessagesList() {
     return;
   }
 
+  // ३. चॅट कार्ड्स रेंडर करणे
   box.innerHTML = list.map(m => {
     let isMeSender = m.senderUid === myUid;
     let peerName = isMeSender ? (m.receiverName || 'Friend') : (m.senderName || 'User');
@@ -1745,18 +1904,57 @@ function renderMessagesList() {
     let peerObj = cacheAllUsers.find(u => u.uid === peerUid);
     let peerAvatar = (peerObj && peerObj.avatar) ? peerObj.avatar : (isMeSender ? m.receiverAvatar : m.senderAvatar) || `https://ui-avatars.com/api/?name=${encodeURIComponent(peerName)}&background=2563eb&color=fff`;
     let isUnreadForMe = m.unread === true && m.lastSenderUid !== myUid;
+    let safePeerName = peerName.replace(/'/g, '');
+
+    if (activeMsgTab === 'Request') {
+      return `
+        <div class="chat-item-row" style="display:flex; flex-direction:column; gap:10px; padding:12px 14px; margin:8px 12px; border-radius:16px; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.05);">
+          <div style="display:flex; align-items:center; gap:12px; cursor:pointer;" onclick="openMessengerWindow('${m.id}', '${safePeerName}', '${peerAvatar}', '${peerUid}')">
+            <img src="${peerAvatar}" style="width:48px; height:48px; border-radius:50%; object-fit:cover;">
+            <div style="flex:1; min-width:0;">
+              <div style="font-weight:800; font-size:15px; color:#0f172a;">${peerName} <span style="font-size:11px; background:#fef3c7; color:#d97706; padding:2px 8px; border-radius:10px;">Request</span></div>
+              <div style="font-size:13px; color:#475569; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${m.lastMessage || 'Sent you a message request'}</div>
+            </div>
+          </div>
+          <div style="display:flex; gap:10px; border-top:1px solid #f1f5f9; padding-top:8px;">
+            <button onclick="acceptMessageRequest('${m.id}', '${safePeerName}')" style="flex:1; background:#16a34a; color:#fff; border:none; padding:8px 0; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer;">✔ Accept</button>
+            <button onclick="rejectMessageRequest('${m.id}', '${safePeerName}')" style="flex:1; background:#fee2e2; color:#dc2626; border:none; padding:8px 0; border-radius:10px; font-weight:700; font-size:13px; cursor:pointer;">✖ Reject</button>
+          </div>
+        </div>
+      `;
+    }
 
     return `
-      <div class="chat-item-row" onclick="openMessengerWindow('${m.id}', '${peerName.replace(/'/g, '')}', '${peerAvatar}', '${peerUid}')" style="display:flex; align-items:center; gap:12px; padding:12px 14px; margin:8px 12px; border-radius:16px; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.04); cursor:pointer;">
+      <div class="chat-item-row"
+        ontouchstart="startChatLongPress('${m.id}', '${safePeerName}')"
+        ontouchend="cancelChatLongPress()"
+        ontouchmove="cancelChatLongPress()"
+        onmousedown="startChatLongPress('${m.id}', '${safePeerName}')"
+        onmouseup="cancelChatLongPress()"
+        onmouseleave="cancelChatLongPress()"
+        oncontextmenu="event.preventDefault(); openChatLongPressMenu('${m.id}', '${safePeerName}');"
+        onclick="openMessengerWindow('${m.id}', '${safePeerName}', '${peerAvatar}', '${peerUid}')"
+        style="display:flex; align-items:center; gap:12px; padding:12px 14px; margin:8px 12px; border-radius:16px; background:#fff; box-shadow:0 2px 8px rgba(0,0,0,0.04); cursor:pointer; user-select:none; -webkit-user-select:none;">
+        
         <div style="position:relative;">
           <img src="${peerAvatar}" style="width:48px; height:48px; border-radius:50%; object-fit:cover;">
           ${isUnreadForMe ? `<span style="position:absolute; top:0; right:0; width:12px; height:12px; background:#2563eb; border:2px solid #fff; border-radius:50%;"></span>` : ''}
         </div>
+        
         <div style="flex:1; min-width:0;">
-          <div style="font-weight:${isUnreadForMe ? '900' : '700'}; font-size:15px; color:#0f172a;">${peerName}</div>
-          <div style="font-size:13px; color:${isUnreadForMe ? '#0f172a' : '#64748b'}; font-weight:${isUnreadForMe ? '700' : '400'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${m.lastMessage || 'Tap to chat'}</div>
+          <div style="font-weight:${isUnreadForMe ? '900' : '700'}; font-size:15px; color:#0f172a; display:flex; align-items:center; gap:6px;">
+            <span>${peerName}</span>
+            ${m.pinned ? `<span style="font-size:11px; color:#2563eb;">📌</span>` : ''}
+            ${m.reminderText ? `<span style="font-size:10.5px; background:#eff6ff; color:#2563eb; padding:1px 7px; border-radius:8px; font-weight:700;">${m.reminderText}</span>` : ''}
+          </div>
+          <div style="font-size:13px; color:${isUnreadForMe ? '#0f172a' : '#64748b'}; font-weight:${isUnreadForMe ? '700' : '400'}; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+            ${m.lastMessage || 'Tap to chat (Hold for options)'}
+          </div>
         </div>
-        <button onclick="event.stopPropagation(); deleteChatFromList('${m.id}')" style="background:#fef2f2; color:#ef4444; border:none; width:34px; height:34px; border-radius:50%; cursor:pointer;"><i class="fa-regular fa-trash-can"></i></button>
+
+        <button onclick="event.stopPropagation(); openChatLongPressMenu('${m.id}', '${safePeerName}')" style="background:#f8fafc; color:#475569; border:none; width:34px; height:34px; border-radius:50%; cursor:pointer; font-size:15px;">
+          <i class="fa-solid fa-ellipsis-vertical"></i>
+        </button>
       </div>
     `;
   }).join('');
@@ -1797,7 +1995,7 @@ async function startRealChat(peerUid, peerName, categoryOverride, peerAvOverride
   if (peerUid === currentUserData.uid) return showToast('ℹ️ तुम्ही स्वतःलाच मेसेज करू शकत नाही!');
 
   const myUid = currentUserData.uid;
-  const chatCat = categoryOverride || (activeMsgTab === 'Marketplace' ? 'Marketplace' : 'Inbox');
+  const chatCat = (categoryOverride === 'Request') ? 'Request' : 'Inbox';
 
   let existing = cacheChats.find(c => {
     const parts = Array.isArray(c.participants) ? c.participants : [];
@@ -1847,8 +2045,21 @@ async function openMessengerWindow(chatId, peerName, peerAvatar, peerUid) {
   const chatDoc = cacheChats.find(x => x.id === chatId);
   if (chatDoc) {
     renderMessengerBubbles(chatDoc);
-    if (chatDoc.unread && chatDoc.lastSenderUid !== (currentUserData && currentUserData.uid)) {
-      db.collection('chats').doc(chatId).update({ unread: false }).catch(() => {});
+
+    // Unread चॅट उघडून वाचताच ऑटोमॅटिक Unread मधून Remove करा!
+    if (chatDoc.unread) {
+      chatDoc.unread = false;
+      renderMessagesList();
+
+      const myUid = currentUserData ? currentUserData.uid : '';
+      let unreadCount = cacheChats.filter(c => c.unread === true && c.lastSenderUid !== myUid && !c.isRequest && c.chatCategory !== 'Request').length;
+      let badge = document.querySelector('.msg-badge-count');
+      if (badge) {
+        badge.innerText = unreadCount;
+        badge.style.display = unreadCount > 0 ? 'inline-block' : 'none';
+      }
+
+      await db.collection('chats').doc(chatId).update({ unread: false }).catch(() => {});
     }
   }
 }
@@ -2219,7 +2430,7 @@ function renderNearbyStores() {
           <div onclick="openUserProfile('${s.uid}')" style="font-weight:800; font-size:15.5px; cursor:pointer;">${s.name}</div>
           <div style="font-size:12px; color:#4f46e5; font-weight:700;">${s.category || 'Shops'} &bull; 📍 ${s.location}</div>
           <div style="display:flex; gap:8px; margin-top:8px;">
-            <button onclick="startRealChat('${s.uid}', '${(s.name || 'Store').replace(/'/g, '')}', 'Marketplace', '${s.avatar || ''}')" style="background:#2563eb; color:#fff; border:none; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">💬 Message</button>
+            <button onclick="startRealChat('${s.uid}', '${(s.name || 'Store').replace(/'/g, '')}', 'Inbox', '${s.avatar || ''}')" style="background:#2563eb; color:#fff; border:none; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">💬 Message</button>
           </div>
         </div>
       </div>
@@ -2252,7 +2463,6 @@ function loadProfileView() {
 async function renderProfileData(u) {
   const isMyOwnProfile = currentUserData && u.uid === currentUserData.uid;
 
-  // १. स्वतःची प्रोफाईल असेल तरच ⚙️ Settings दाखवा; दुसऱ्याची प्रोफाईल असेल तर ⋮ (३ डॉट्स) दाखवा!
   const rightTopBtns = document.querySelectorAll('#view-profile .prof-top-right-group button');
   rightTopBtns.forEach(btn => {
     if (isMyOwnProfile) {
@@ -2264,7 +2474,6 @@ async function renderProfileData(u) {
     }
   });
 
-  // २. दुसऱ्याच्या प्रोफाईलवर Archived टॅब आणि '+ Add New' बटण लपवा!
   const pArchBtn = document.getElementById('people-archived-tab-btn');
   if (pArchBtn) pArchBtn.style.display = isMyOwnProfile ? 'inline-block' : 'none';
   const bArchBtn = document.getElementById('biz-archived-tab-btn');
@@ -2455,7 +2664,7 @@ async function executeRealFollow() {
 }
 
 function startChatWithActiveBiz() {
-  if (activeProfileUser) startRealChat(activeProfileUser.uid, activeProfileUser.name, 'Marketplace', activeProfileUser.avatar);
+  if (activeProfileUser) startRealChat(activeProfileUser.uid, activeProfileUser.name, 'Inbox', activeProfileUser.avatar);
 }
 function callActiveBiz() {
   let ph = activeProfileUser && activeProfileUser.phone ? activeProfileUser.phone : '9876543210';
@@ -2592,3 +2801,4 @@ function closeImageLightbox() {
 function openGoogleMapLink(query) {
   window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query || 'Ardhapur, Maharashtra')}`, '_blank');
 }
+
