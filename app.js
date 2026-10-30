@@ -2986,3 +2986,345 @@ async function logoutCurrentUser() {
   document.getElementById('welcome-screen').style.display = 'flex';
   showToast('👋 यशस्वीरित्या Log Out झाले!');
 }
+// =========================================================
+// UNIVERSAL REAL-TIME SEARCH ENGINE (HOME, EXPLORE, NEARBY, MESSAGES)
+// =========================================================
+
+// १. सर्व सर्च बॉक्स आपोआप शोधून त्यांना लाईव्ह टायपिंग (input) इव्हेंट जोडणे
+function bindAllSearchInputsLive() {
+  // A. HOME TOP HEADER SEARCH BOX (People & Business Search Modal)
+  const topSearchEl = document.querySelector('#main-top-header input') ||
+                      document.getElementById('top-search-input') ||
+                      Array.from(document.querySelectorAll('#main-top-header *')).find(el => el.textContent && el.textContent.trim() === 'Search');
+
+  if (topSearchEl && !topSearchEl.dataset.boundHomeSearch) {
+    topSearchEl.dataset.boundHomeSearch = '1';
+    if (topSearchEl.tagName === 'INPUT') {
+      topSearchEl.setAttribute('placeholder', 'Search People & Business...');
+      topSearchEl.addEventListener('focus', () => openHomeAccountSearchModal(topSearchEl.value));
+      topSearchEl.addEventListener('input', (e) => openHomeAccountSearchModal(e.target.value));
+    } else {
+      const clickableParent = topSearchEl.closest('div, button') || topSearchEl;
+      clickableParent.style.cursor = 'pointer';
+      clickableParent.addEventListener('click', () => openHomeAccountSearchModal(''));
+    }
+  }
+
+  // B. EXPLORE SEARCH BOX
+  const expInp = document.getElementById('explore-search-input') || document.querySelector('#view-explore input[type="text"], #view-explore input[type="search"], #view-explore input');
+  if (expInp && !expInp.dataset.boundExp) {
+    expInp.id = 'explore-search-input';
+    expInp.dataset.boundExp = '1';
+    expInp.addEventListener('input', () => renderExploreOffers());
+    expInp.addEventListener('keyup', () => renderExploreOffers());
+  }
+
+  // C. NEARBY SEARCH BOX
+  const nearInp = document.getElementById('nearby-search-input') || document.querySelector('#view-nearby input[type="text"], #view-nearby input[type="search"], #view-nearby input');
+  if (nearInp && !nearInp.dataset.boundNear) {
+    nearInp.id = 'nearby-search-input';
+    nearInp.dataset.boundNear = '1';
+    nearInp.addEventListener('input', () => renderNearbyStores());
+    nearInp.addEventListener('keyup', () => renderNearbyStores());
+  }
+
+  // D. MESSAGES SEARCH BOX
+  const msgInp = document.getElementById('msg-search-input') || document.querySelector('#view-messages input[type="text"], #view-messages input[type="search"], #view-messages input');
+  if (msgInp && !msgInp.dataset.boundMsg) {
+    msgInp.id = 'msg-search-input';
+    msgInp.dataset.boundMsg = '1';
+    msgInp.addEventListener('input', () => renderMessagesList());
+    msgInp.addEventListener('keyup', () => renderMessagesList());
+  }
+}
+
+setInterval(bindAllSearchInputsLive, 1200);
+document.addEventListener('DOMContentLoaded', bindAllSearchInputsLive);
+
+// =========================================================
+// २. HOME SEARCH: PEOPLE & BUSINESS ACCOUNT SEARCH MODAL
+// =========================================================
+let activeHomeAccountFilter = 'all'; // 'all' | 'people' | 'business'
+
+function ensureHomeSearchModal() {
+  if (document.getElementById('pro-home-search-modal')) return;
+  const wrap = document.createElement('div');
+  wrap.innerHTML = `
+    <div id="pro-home-search-modal" style="display:none; position:fixed; inset:0; background:#f8fafc; z-index:7500; flex-direction:column; font-family:'Poppins', sans-serif;">
+      <div style="display:flex; align-items:center; gap:10px; padding:12px 14px; background:#fff; border-bottom:1px solid #e2e8f0;">
+        <button onclick="closeHomeAccountSearchModal()" style="background:none; border:none; font-size:20px; color:#0f172a; cursor:pointer; padding:4px;"><i class="fa-solid fa-arrow-left"></i></button>
+        <div style="flex:1; display:flex; align-items:center; background:#f1f5f9; border-radius:24px; padding:8px 14px;">
+          <i class="fa-solid fa-magnifying-glass" style="color:#64748b; margin-right:8px;"></i>
+          <input type="text" id="home-acc-search-input" placeholder="Search People or Business accounts..." style="flex:1; border:none; background:transparent; outline:none; font-size:14px; color:#0f172a;" oninput="renderHomeAccountSearchResults()">
+          <i class="fa-solid fa-xmark" style="color:#64748b; cursor:pointer; padding:2px 4px;" onclick="document.getElementById('home-acc-search-input').value=''; renderHomeAccountSearchResults();"></i>
+        </div>
+      </div>
+
+      <div style="display:flex; gap:8px; padding:10px 14px; background:#fff; border-bottom:1px solid #f1f5f9;">
+        <button id="h-tab-all" onclick="setHomeSearchTab('all')" style="padding:6px 16px; border-radius:20px; border:none; font-weight:700; font-size:12.5px; background:#4f46e5; color:#fff; cursor:pointer;">All Accounts</button>
+        <button id="h-tab-people" onclick="setHomeSearchTab('people')" style="padding:6px 16px; border-radius:20px; border:none; font-weight:700; font-size:12.5px; background:#f1f5f9; color:#334155; cursor:pointer;">👤 People</button>
+        <button id="h-tab-business" onclick="setHomeSearchTab('business')" style="padding:6px 16px; border-radius:20px; border:none; font-weight:700; font-size:12.5px; background:#f1f5f9; color:#334155; cursor:pointer;">🏪 Business</button>
+      </div>
+
+      <div id="home-acc-search-results" style="flex:1; overflow-y:auto; padding:12px 14px;"></div>
+    </div>
+  `;
+  document.body.appendChild(wrap);
+}
+
+function openHomeAccountSearchModal(initialQuery = '') {
+  ensureHomeSearchModal();
+  const modal = document.getElementById('pro-home-search-modal');
+  const inp = document.getElementById('home-acc-search-input');
+  modal.style.display = 'flex';
+  if (typeof initialQuery === 'string' && initialQuery) inp.value = initialQuery;
+  setTimeout(() => inp.focus(), 80);
+  renderHomeAccountSearchResults();
+}
+
+function closeHomeAccountSearchModal() {
+  const modal = document.getElementById('pro-home-search-modal');
+  if (modal) modal.style.display = 'none';
+}
+
+function setHomeSearchTab(tab) {
+  activeHomeAccountFilter = tab;
+  ['all', 'people', 'business'].forEach(t => {
+    const btn = document.getElementById('h-tab-' + t);
+    if (btn) {
+      btn.style.background = (t === tab) ? '#4f46e5' : '#f1f5f9';
+      btn.style.color = (t === tab) ? '#ffffff' : '#334155';
+    }
+  });
+  renderHomeAccountSearchResults();
+}
+
+function renderHomeAccountSearchResults() {
+  const box = document.getElementById('home-acc-search-results');
+  const q = (document.getElementById('home-acc-search-input')?.value || '').trim().toLowerCase();
+  if (!box) return;
+
+  let list = cacheAllUsers.filter(u => {
+    if (activeHomeAccountFilter === 'people' && u.type === 'business') return false;
+    if (activeHomeAccountFilter === 'business' && u.type !== 'business') return false;
+    if (!q) return true;
+    return (u.name || '').toLowerCase().includes(q) ||
+           (u.handle || '').toLowerCase().includes(q) ||
+           (u.category || '').toLowerCase().includes(q) ||
+           (u.location || '').toLowerCase().includes(q);
+  });
+
+  if (list.length === 0) {
+    box.innerHTML = `<div style="text-align:center; padding:40px 16px; color:#64748b; font-size:14px;">🔍 "<b>${q}</b>" नावाचे कोणतेही People किंवा Business अकाउंट सापडले नाही.</div>`;
+    return;
+  }
+
+  box.innerHTML = list.map(u => {
+    const isBiz = u.type === 'business';
+    const badgeHTML = isBiz
+      ? `<span style="background:#eff6ff; color:#2563eb; font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:8px;">🏪 ${u.category || 'Business'}</span>`
+      : `<span style="background:#f3e8ff; color:#7e22ce; font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:8px;">👤 People</span>`;
+
+    return `
+      <div onclick="closeHomeAccountSearchModal(); openUserProfile('${u.uid}')" style="display:flex; align-items:center; gap:12px; background:#fff; padding:12px 14px; border-radius:16px; margin-bottom:10px; box-shadow:0 2px 8px rgba(0,0,0,0.04); cursor:pointer;">
+        <img src="${u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'U')}`}" style="width:50px; height:50px; border-radius:${isBiz ? '14px' : '50%'}; object-fit:cover;">
+        <div style="flex:1; min-width:0;">
+          <div style="display:flex; align-items:center; gap:6px; flex-wrap:wrap;">
+            <span style="font-weight:800; font-size:15px; color:#0f172a;">${u.name || 'User'}</span>
+            ${badgeHTML}
+          </div>
+          <div style="font-size:12px; color:#64748b; margin-top:2px;">${u.handle || '@user'} &bull; 📍 ${u.location || 'Maharashtra'}</div>
+        </div>
+        <button onclick="event.stopPropagation(); closeHomeAccountSearchModal(); startRealChat('${u.uid}', '${(u.name || 'User').replace(/'/g, '')}', 'Inbox', '${u.avatar || ''}')" style="background:#2563eb; color:#fff; border:none; padding:7px 12px; border-radius:10px; font-size:12px; font-weight:700; cursor:pointer;">💬 Chat</button>
+      </div>
+    `;
+  }).join('');
+}
+
+// =========================================================
+// ३. EXPLORE SUB-POINTS & UNIVERSAL SEARCH (Offers, Jobs, Trending Reels, इ.)
+// =========================================================
+function renderExploreOffers() {
+  let box = document.getElementById('explore-offers-list');
+  if (!box) return;
+  let inp = document.getElementById('explore-search-input') || document.querySelector('#view-explore input');
+  let q = (inp ? inp.value : '').trim().toLowerCase();
+  const chip = (activeExploreFilter || 'Offers').trim();
+
+  // १. Trending Reels सब-पॉईंट
+  if (chip.toLowerCase().includes('reel')) {
+    let reelsList = cacheReels.filter(r => !r.archived && r.img && (
+      !q ||
+      (r.author || '').toLowerCase().includes(q) ||
+      (r.caption || '').toLowerCase().includes(q)
+    ));
+    window.currentExploreReelsList = reelsList;
+
+    box.innerHTML = reelsList.length === 0
+      ? `<p style="text-align:center; padding:30px; color:#64748b;">🔍 "${q || chip}" साठी कोणतीही Reel सापडली नाही.</p>`
+      : reelsList.map(r => {
+          const isVid = r.mediaType === 'video' || (r.img && (r.img.startsWith('data:video') || r.img.includes('.mp4')));
+          return `
+            <div onclick="openScrollableMediaFeed('reels', '${r.id}', 'Trending Reels', window.currentExploreReelsList, 'public_reel')" style="background:#fff; border-radius:16px; padding:12px; margin:10px 14px; display:flex; gap:14px; align-items:center; box-shadow:0 2px 8px rgba(0,0,0,0.05); cursor:pointer;">
+              <div style="width:74px; height:96px; background:#0f172a; border-radius:12px; overflow:hidden; position:relative; flex-shrink:0;">
+                ${isVid
+                  ? `<video src="${r.img}#t=0.1" style="width:100%; height:100%; object-fit:cover;" muted playsinline preload="metadata"></video>`
+                  : `<img src="${r.img}" style="width:100%; height:100%; object-fit:cover;">`
+                }
+                <div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; background:rgba(0,0,0,0.3); color:#fff; font-size:18px;">▶</div>
+              </div>
+              <div style="flex:1;">
+                <span style="background:#fee2e2; color:#dc2626; font-size:11px; font-weight:800; padding:3px 9px; border-radius:8px;">🎬 Reel &bull; ${r.views || 1} Views</span>
+                <h4 style="margin:8px 0 4px; font-size:16px; color:#0f172a;">${r.caption || 'Reel'}</h4>
+                <div style="font-size:12.5px; color:#64748b;">By ${r.author}</div>
+              </div>
+            </div>
+          `;
+        }).join('');
+    return;
+  }
+
+  // २. Offers सब-पॉईंट (आणि जर युजरने सर्च बॉक्समध्ये काही टाईप केले तर People/Business/Posts सुद्धा दाखवणे)
+  if (chip.toLowerCase() === 'offers') {
+    let filteredOffers = cacheOffers.filter(o => !o.archived && (
+      !q ||
+      (o.deal || '').toLowerCase().includes(q) ||
+      (o.bizName || '').toLowerCase().includes(q) ||
+      (o.location || '').toLowerCase().includes(q)
+    ));
+
+    let extraUsersHTML = '';
+    if (q) {
+      const matchedUsers = cacheAllUsers.filter(u =>
+        (u.name || '').toLowerCase().includes(q) ||
+        (u.handle || '').toLowerCase().includes(q) ||
+        (u.category || '').toLowerCase().includes(q)
+      );
+      if (matchedUsers.length > 0) {
+        extraUsersHTML = `
+          <div style="margin:8px 14px 14px;">
+            <div style="font-weight:800; font-size:13.5px; color:#475569; margin-bottom:8px;">👥 Matching People & Businesses (${matchedUsers.length})</div>
+            ${matchedUsers.map(u => `
+              <div onclick="openUserProfile('${u.uid}')" style="display:flex; align-items:center; gap:10px; background:#fff; padding:10px 12px; border-radius:14px; margin-bottom:8px; box-shadow:0 2px 6px rgba(0,0,0,0.04); cursor:pointer;">
+                <img src="${u.avatar}" style="width:42px; height:42px; border-radius:50%; object-fit:cover;">
+                <div style="flex:1;">
+                  <div style="font-weight:800; font-size:14px; color:#0f172a;">${u.name}</div>
+                  <div style="font-size:11.5px; color:#64748b;">${u.type === 'business' ? '🏪 ' + (u.category || 'Business') : '👤 People'} &bull; 📍 ${u.location || ''}</div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        `;
+      }
+    }
+
+    const offersHTML = filteredOffers.length === 0
+      ? `<p style="text-align:center; padding:30px; color:#64748b;">सध्या कोणतीही ऑफर नाही. '+ Create ➔ Offer' मधून नवीन ऑफर टाका!</p>`
+      : filteredOffers.map(o => `
+        <div class="offer-banner-card" style="background:#fff; border-radius:16px; overflow:hidden; margin:12px 14px; box-shadow:0 2px 10px rgba(0,0,0,0.06);">
+          <div onclick="openScrollableMediaFeed('offers', '${o.id}', 'Offers', null, 'public_reel')" style="background-image:url('${o.img}'); height:145px; background-size:cover; background-position:center; position:relative; padding:14px; display:flex; align-items:flex-end; color:#fff; cursor:pointer;">
+            <div style="position:absolute; inset:0; background:linear-gradient(transparent, rgba(0,0,0,0.8));"></div>
+            <div style="position:relative; z-index:1;">
+              <div style="font-size:13px; font-weight:700; color:#38bdf8;">${o.bizName}</div>
+              <div style="font-size:18px; font-weight:900;">${o.deal}</div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+
+    box.innerHTML = extraUsersHTML + offersHTML;
+    return;
+  }
+
+  // ३. इतर सर्व Explore सब-पॉईंट्स (उदा. Jobs, Events, News, Posts इ.) साठी स्मार्ट फिल्टर
+  const chipLower = chip.toLowerCase();
+  const subPosts = cachePosts.filter(p => !p.archived && (
+    ((p.category || '').toLowerCase().includes(chipLower) || (p.caption || '').toLowerCase().includes(chipLower) || chipLower === 'all') &&
+    (!q || (p.caption || '').toLowerCase().includes(q) || (p.author || '').toLowerCase().includes(q) || (p.location || '').toLowerCase().includes(q))
+  ));
+
+  if (subPosts.length === 0) {
+    box.innerHTML = `<p style="text-align:center; padding:30px; color:#64748b;">सध्या <b>${chip}</b> मध्ये माहिती नाही. '+ Create ➔ Post' मधून Category मध्ये "${chip}" लिहून पोस्ट टाका!</p>`;
+    return;
+  }
+
+  box.innerHTML = subPosts.map(p => `
+    <div onclick="openScrollableMediaFeed('posts', '${p.id}', '${chip}', null, 'public_reel')" style="background:#fff; border-radius:16px; padding:14px; margin:10px 14px; box-shadow:0 2px 8px rgba(0,0,0,0.05); cursor:pointer;">
+      <div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">
+        <img src="${p.avatar}" style="width:38px; height:38px; border-radius:50%; object-fit:cover;">
+        <div>
+          <div style="font-weight:800; font-size:14.5px; color:#0f172a;">${p.author}</div>
+          <div style="font-size:11.5px; color:#4f46e5; font-weight:700;">${p.category || chip} &bull; 📍 ${p.location || ''}</div>
+        </div>
+      </div>
+      <div style="font-size:14px; color:#1e293b; margin-bottom:8px;">${p.caption || ''}</div>
+      ${p.img ? `<img src="${p.img}" style="width:100%; max-height:220px; object-fit:cover; border-radius:12px;">` : ''}
+    </div>
+  `).join('');
+}
+
+// =========================================================
+// ४. NEARBY SUB-POINTS & LIVE SEARCH (All, Shops, Services, Restaurants, Deals)
+// =========================================================
+function renderNearbyStores() {
+  let box = document.getElementById('nearby-stores-list');
+  if (!box) return;
+  let inp = document.getElementById('nearby-search-input') || document.querySelector('#view-nearby input');
+  let q = (inp ? inp.value : '').trim().toLowerCase();
+  const catFilter = (activeNearbyFilter || 'All').trim().toLowerCase();
+
+  // जर Nearby मध्ये 'Deals' सब-पॉईंट निवडला असेल तर ऑफर्स सर्च करा
+  if (catFilter === 'deals' || catFilter === 'offers') {
+    const deals = cacheOffers.filter(o => !o.archived && (
+      !q ||
+      (o.deal || '').toLowerCase().includes(q) ||
+      (o.bizName || '').toLowerCase().includes(q) ||
+      (o.location || '').toLowerCase().includes(q)
+    ));
+    box.innerHTML = deals.length === 0
+      ? `<div style="text-align:center; padding:30px; color:#64748b;">आजूबाजूला कोणतीही Deal किंवा Offer सापडली नाही.</div>`
+      : deals.map(o => `
+        <div onclick="openScrollableMediaFeed('offers', '${o.id}', 'Nearby Deals', null, 'public_reel')" style="background:#fff; border-radius:16px; padding:12px; margin:12px 14px; display:flex; gap:12px; align-items:center; box-shadow:0 2px 8px rgba(0,0,0,0.05); cursor:pointer;">
+          <img src="${o.img}" style="width:72px; height:72px; border-radius:12px; object-fit:cover;">
+          <div style="flex:1;">
+            <span style="background:#dcfce7; color:#16a34a; font-size:10.5px; font-weight:800; padding:2px 8px; border-radius:6px;">🏷️ Nearby Deal</span>
+            <div style="font-weight:800; font-size:15px; color:#0f172a; margin-top:4px;">${o.deal}</div>
+            <div style="font-size:12px; color:#64748b;">🏪 ${o.bizName} &bull; 📍 ${o.location || 'Maharashtra'}</div>
+          </div>
+        </div>
+      `).join('');
+    return;
+  }
+
+  // All, Shops, Services, Restaurants इ. सब-पॉईंट्स आणि सर्च बॉक्स फिल्टर
+  const singularCat = catFilter.endsWith('s') ? catFilter.slice(0, -1) : catFilter;
+
+  let stores = cacheBusinesses.filter(s => {
+    const sCat = (s.category || 'Shops').toLowerCase();
+    const matchSubPoint = (catFilter === 'all') || sCat.includes(catFilter) || sCat.includes(singularCat);
+    if (!matchSubPoint) return false;
+
+    if (!q) return true;
+    return (s.name || '').toLowerCase().includes(q) ||
+           sCat.includes(q) ||
+           (s.location || '').toLowerCase().includes(q) ||
+           (s.about || '').toLowerCase().includes(q);
+  });
+
+  box.innerHTML = stores.length === 0
+    ? `<div style="text-align:center; padding:30px; color:#64748b;">${q ? `🔍 "${q}" साठी कोणतेही Business अकाउंट सापडले नाही.` : `अजून <b>${activeNearbyFilter}</b> मध्ये Business अकाउंट नाही.`}</div>`
+    : stores.map(s => `
+      <div style="background:#fff; border-radius:16px; padding:14px; margin:12px 14px; display:flex; gap:12px; box-shadow:0 2px 8px rgba(0,0,0,0.04);">
+        <img src="${s.avatar}" onclick="openUserProfile('${s.uid}')" style="width:75px; height:75px; border-radius:12px; object-fit:cover; cursor:pointer;">
+        <div style="flex:1;">
+          <div onclick="openUserProfile('${s.uid}')" style="font-weight:800; font-size:15.5px; color:#0f172a; cursor:pointer;">${s.name}</div>
+          <div style="font-size:12px; color:#4f46e5; font-weight:700;">${s.category || 'Shops'} &bull; 📍 ${s.location || 'Maharashtra'}</div>
+          <div style="font-size:12px; color:#64748b; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${s.about || ''}</div>
+          <div style="display:flex; gap:8px; margin-top:8px;">
+            <button onclick="startRealChat('${s.uid}', '${(s.name || 'Store').replace(/'/g, '')}', 'Inbox', '${s.avatar || ''}')" style="background:#2563eb; color:#fff; border:none; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">💬 Message</button>
+            <button onclick="openUserProfile('${s.uid}')" style="background:#f1f5f9; color:#0f172a; border:none; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">Visit Store</button>
+          </div>
+        </div>
+      </div>
+    `).join('');
+}
