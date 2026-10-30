@@ -2833,3 +2833,156 @@ function closeImageLightbox() {
 function openGoogleMapLink(query) {
   window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query || 'Ardhapur, Maharashtra')}`, '_blank');
 }
+// =========================================================
+// INSTANT AUTO-LOGIN & DIRECT HOME FEED OPENER (INSTAGRAM STYLE)
+// =========================================================
+
+const ALBIZNET_SESSION_KEY = 'albiznet_logged_user_v1';
+
+// १. ॲप उघडताच १ सेकंदाच्या आत तपासणे की या मोबाईलमध्ये आधी लॉगिन आहे का?
+(function instantBootSavedUser() {
+  try {
+    const saved = localStorage.getItem(ALBIZNET_SESSION_KEY);
+    if (saved) {
+      const parsedUser = JSON.parse(saved);
+      if (parsedUser && parsedUser.uid) {
+        currentUserData = parsedUser;
+        activeProfileUser = parsedUser;
+
+        // Welcome किंवा Login स्क्रीन लगेच लपवून थेट Main App उघडणे
+        const hideWelcomeAndShowFeed = () => {
+          const wScreen = document.getElementById('welcome-screen');
+          const aScreen = document.getElementById('auth-screen');
+          const mShell = document.getElementById('main-app-shell');
+
+          if (wScreen) wScreen.style.display = 'none';
+          if (aScreen) aScreen.style.display = 'none';
+          if (mShell) mShell.style.display = 'block';
+        };
+
+        if (document.readyState === 'loading') {
+          document.addEventListener('DOMContentLoaded', hideWelcomeAndShowFeed);
+        } else {
+          hideWelcomeAndShowFeed();
+        }
+      }
+    }
+  } catch (e) {}
+})();
+
+// २. सुधारित Firebase Init (Local Persistence सह + सेशन सेव्ह करणे)
+async function initRealFirebaseApp() {
+  try {
+    injectProModalsIntoDOM();
+    setupVideoFileInput();
+    upgradeBusinessProfileTabs();
+    setupGlobalOutsideClickForCreateMenu();
+
+    // जर युजर आधीच लोकल स्टोरेजमध्ये सेव्ह असेल तर लगेच स्क्रीन उघडा
+    const savedLocal = localStorage.getItem(ALBIZNET_SESSION_KEY);
+    if (savedLocal) {
+      try {
+        currentUserData = JSON.parse(savedLocal);
+        document.getElementById('welcome-screen').style.display = 'none';
+        document.getElementById('auth-screen').style.display = 'none';
+        document.getElementById('main-app-shell').style.display = 'block';
+      } catch (e) {}
+    }
+
+    if (typeof firebase === 'undefined') {
+      await loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js');
+      await loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js');
+      await loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js');
+      await loadScript('https://www.gstatic.com/firebasejs/10.12.0/firebase-storage-compat.js');
+    }
+
+    let config = null;
+    const cached = localStorage.getItem('albiznet_fb_config_cache');
+    if (cached) {
+      try { config = JSON.parse(cached); } catch (e) {}
+    }
+
+    if (!config || !config.apiKey) {
+      const res = await fetch('/api/config');
+      const data = await res.json();
+      config = typeof data === 'string' ? JSON.parse(data) : data;
+      if (config && config.apiKey) {
+        localStorage.setItem('albiznet_fb_config_cache', JSON.stringify(config));
+      }
+    }
+
+    if (!firebase.apps.length) {
+      firebase.initializeApp(config);
+    }
+
+    auth = firebase.auth();
+    db = firebase.firestore();
+    if (firebase.storage) {
+      try { storage = firebase.storage(); } catch (e) {}
+    }
+
+    // मोबाईल बंद केला किंवा ब्राउझर बंद केला तरी लॉगिन कायम राहण्यासाठी LOCAL Persistence
+    if (firebase.auth.Auth && firebase.auth.Auth.Persistence) {
+      await auth.setPersistence(firebase.auth.Auth.Persistence.LOCAL).catch(() => {});
+    }
+
+    setupNotificationBell();
+
+    auth.onAuthStateChanged(async (user) => {
+      if (user) {
+        const docRef = db.collection('users').doc(user.uid);
+        const snap = await docRef.get();
+        if (snap.exists) {
+          currentUserData = { uid: user.uid, ...snap.data() };
+        } else {
+          let fallbackName = user.displayName || (user.email ? user.email.split('@')[0] : 'ALBIZNET User');
+          currentUserData = {
+            uid: user.uid,
+            type: authAccountType || 'people',
+            name: fallbackName,
+            handle: '@' + fallbackName.toLowerCase().replace(/\s+/g, ''),
+            category: authAccountType === 'business' ? 'Shops' : 'Personal Account',
+            about: `Hi! I'm ${fallbackName} on ALBIZNET.`,
+            location: 'Ardhapur, Maharashtra',
+            phone: user.phoneNumber || '',
+            email: user.email || '',
+            avatar: user.photoURL || `https://ui-avatars.com/api/?name=${encodeURIComponent(fallbackName)}&background=4f46e5&color=fff&bold=true`,
+            followersCount: 0,
+            followingCount: 0,
+            postsCount: 0,
+            createdAt: firebase.firestore.FieldValue.serverTimestamp()
+          };
+          await docRef.set(currentUserData);
+        }
+
+        // युजरचा डेटा मोबाईलमध्ये कायमस्वरूपी सेव्ह करणे (पुढच्या वेळी थेट उघडण्यासाठी!)
+        localStorage.setItem(ALBIZNET_SESSION_KEY, JSON.stringify(currentUserData));
+        launchMainApp();
+      } else {
+        // जर खरंच लॉगआऊट केले असेल तरच Welcome स्क्रीन दाखवणे
+        if (!localStorage.getItem(ALBIZNET_SESSION_KEY)) {
+          document.getElementById('main-app-shell').style.display = 'none';
+          document.getElementById('auth-screen').style.display = 'none';
+          document.getElementById('welcome-screen').style.display = 'flex';
+        } else {
+          launchMainApp();
+        }
+      }
+    });
+  } catch (err) {
+    console.error('Firebase Init Error:', err);
+  }
+}
+
+// ३. जेव्हा युजर स्वतःहून 'Log Out' बटण दाबेल, तेव्हाच मेमरी पुसून Welcome स्क्रीनवर नेणे
+async function logoutCurrentUser() {
+  localStorage.removeItem(ALBIZNET_SESSION_KEY);
+  if (auth) await auth.signOut().catch(() => {});
+  currentUserData = null;
+  activeProfileUser = null;
+  closeSettingsScreen();
+  document.getElementById('main-app-shell').style.display = 'none';
+  document.getElementById('auth-screen').style.display = 'none';
+  document.getElementById('welcome-screen').style.display = 'flex';
+  showToast('👋 यशस्वीरित्या Log Out झाले!');
+}
