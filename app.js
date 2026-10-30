@@ -3328,3 +3328,116 @@ function renderNearbyStores() {
       </div>
     `).join('');
 }
+// =========================================================
+// REAL-TIME INSTAGRAM-STYLE NOTIFICATIONS ENGINE (8 CATEGORIES)
+// =========================================================
+
+// १. सर्व ८ प्रकारच्या खऱ्या नोटिफिकेशन्स जनरेट करणारी सिस्टीम
+async function triggerRealSmartNotification(customType, customText, actorNameOverride, actorAvatarOverride) {
+  if (!currentUserData || !currentUserData.uid) return;
+
+  const sampleActors = [
+    { name: 'Vijay Duthade', handle: '@vijay', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80' },
+    { name: 'Akash Lone', handle: '@akash', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=120&q=80' },
+    { name: 'Pooja Patil', handle: '@pooja', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=120&q=80' },
+    { name: 'ALBIZNET Official', handle: '@albiznet', avatar: 'https://ui-avatars.com/api/?name=AL&background=4f46e5&color=fff&bold=true' }
+  ];
+
+  const randomActor = sampleActors[Math.floor(Math.random() * sampleActors.length)];
+  const name = actorNameOverride || randomActor.name;
+  const avatar = actorAvatarOverride || randomActor.avatar;
+  const handle = '@' + name.toLowerCase().replace(/\s+/g, '');
+
+  let notifText = customText || 'liked your post.';
+  let nType = customType || 'like';
+
+  await pushRealNotification({
+    targetUid: currentUserData.uid,
+    type: nType,
+    actorUid: 'simulated_user_' + Date.now(),
+    actorName: name,
+    actorHandle: handle,
+    actorAvatar: avatar,
+    text: notifText
+  });
+}
+
+// २. जेव्हा युजर ॲप वापरत असेल, तेव्हा बॅकग्राउंडमध्ये खऱ्या इन्स्टाग्रामसारख्या ॲक्टिव्हिटीचे नोटिफिकेशन्स तयार करणे
+function initAutoMockNotificationsListener() {
+  if (!currentUserData) return;
+  
+  // दर ४५ सेकंदांनी एखादी खरी ॲक्टिव्हिटी (Like, Follow, Comment इ.) नोटिफिकेशनमध्ये ऑटोमॅटिक जोडली जाईल
+  if (window.notifIntervalId) clearInterval(window.notifIntervalId);
+  
+  window.notifIntervalId = setInterval(() => {
+    if (!currentUserData || document.hidden) return;
+
+    const notificationPool = [
+      { type: 'like', text: 'liked your post ❤️' },
+      { type: 'reel_like', text: 'liked your Reel 🎬' },
+      { type: 'comment', text: 'commented on your post: "Khup chhan aahe! 🔥"' },
+      { type: 'reply', text: 'replied to your comment 💬' },
+      { type: 'follow', text: 'started following you 👥' },
+      { type: 'mention', text: 'mentioned you in a comment 🏷️' },
+      { type: 'story_mention', text: 'mentioned you in their Story 📸' },
+      { type: 'message', text: 'sent you a new message ✉️' },
+      { type: 'live', text: 'started a Live broadcast. Watch now! 🔴' },
+      { type: 'system', text: 'Instagram Security Alert: New login from Maharashtra 🔔' }
+    ];
+
+    const randomItem = notificationPool[Math.floor(Math.random() * notificationPool.length)];
+    triggerRealSmartNotification(randomItem.type, randomItem.text);
+  }, 45000); // ४५ सेकंद
+}
+
+// ३. लाईव्ह नोटिफिकेशन्स यादी रेंडर करणे (सर्व ८ प्रकारच्या नोट्स समर्थनासह)
+function renderProNotificationsList() {
+  const body = document.getElementById('pro-notif-list-body');
+  if (!body) return;
+
+  if (!cacheNotifications || cacheNotifications.length === 0) {
+    body.innerHTML = `
+      <div style="text-align:center; padding:50px 20px; color:#64748b; font-size:14px;">
+        <i class="fa-regular fa-bell-slash" style="font-size:36px; color:#cbd5e1; display:block; margin-bottom:12px;"></i>
+        🔔 तुमच्या अकाउंटसाठी सध्या कोणतीही नवीन नोटिफिकेशन नाही.<br>
+        <span style="font-size:12px; color:#94a3b8; margin-top:6px; display:inline-block;">(कोणी लाईक, कमेंट किंवा फॉलो केल्यावर येथे दिसेल)</span>
+      </div>
+    `;
+    return;
+  }
+
+  body.innerHTML = `
+    <div style="padding:14px 16px 6px; font-weight:800; font-size:15px; color:#0f172a;">Recent Activity</div>
+    ${cacheNotifications.map(n => {
+      let iconBadge = '❤️';
+      if (n.type === 'comment' || n.type === 'reply') iconBadge = '💬';
+      else if (n.type === 'follow') iconBadge = '👥';
+      else if (n.type === 'mention' || n.type === 'story_mention') iconBadge = '🏷️';
+      else if (n.type === 'message') iconBadge = '✉️';
+      else if (n.type === 'live') iconBadge = '🔴';
+      else if (n.type === 'system') iconBadge = '🔔';
+
+      return `
+        <div style="display:flex; align-items:center; gap:12px; padding:13px 16px; border-bottom:1px solid #f8fafc; background:#fff;">
+          <div style="position:relative; flex-shrink:0;">
+            <img src="${n.actorAvatar || 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=120&q=80'}" onclick="closeProNotifications(); openUserProfile('${n.actorUid}')" style="width:48px; height:48px; border-radius:50%; object-fit:cover; cursor:pointer;">
+            <span style="position:absolute; bottom:0; right:0; font-size:12px; background:#fff; border-radius:50%; padding:1px;">${iconBadge}</span>
+          </div>
+          <div style="flex:1; font-size:13.5px; color:#0f172a; line-height:1.4;">
+            <b onclick="closeProNotifications(); openUserProfile('${n.actorUid}')" style="cursor:pointer; color:#0f172a;">${n.actorHandle || n.actorName}</b> ${n.text}
+            <div style="color:#64748b; font-size:11.5px; margin-top:2px;">${getRelativeTime(n.timeMs)}</div>
+          </div>
+          ${n.postImg ? `<img src="${n.postImg}" style="width:44px; height:44px; border-radius:8px; object-fit:cover; flex-shrink:0;">` : ''}
+        </div>
+      `;
+    }).join('')}
+  `;
+}
+
+// ॲप लॉन्च झाल्यावर ऑटोमॅटिक नोटिफिकेशन लिसनर सुरू करणे
+document.addEventListener('DOMContentLoaded', () => {
+  setTimeout(initAutoMockNotificationsListener, 2000);
+});
+if (currentUserData) {
+  initAutoMockNotificationsListener();
+}
