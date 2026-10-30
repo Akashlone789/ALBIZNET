@@ -3441,3 +3441,287 @@ document.addEventListener('DOMContentLoaded', () => {
 if (currentUserData) {
   initAutoMockNotificationsListener();
 }
+// =========================================================
+// 100% REAL INTERACTIVE NOTIFICATIONS ENGINE (NO FAKE NOTIFICATIONS!)
+// Touch Notification -> Opens Exact Post, Reel, Comment, Chat or Profile
+// =========================================================
+
+// १. कोणताही Fake / Mock Notification टायमर चालू असेल तर तो तात्काळ बंद करणे
+if (window.notifIntervalId) {
+  clearInterval(window.notifIntervalId);
+  window.notifIntervalId = null;
+}
+function initAutoMockNotificationsListener() {
+  if (window.notifIntervalId) clearInterval(window.notifIntervalId);
+}
+function triggerRealSmartNotification() {
+  // Fake notifications disabled completely
+}
+
+// २. सुधारित pushRealNotification (पोस्ट/रील आयडी आणि कलेक्शन सेव्ह करणारे)
+async function pushRealNotification(payload) {
+  try {
+    if (!payload || !payload.actorName || !payload.text) return;
+    // फेक युजर आयडी असल्यास अजिबात सेव्ह करू नका
+    if (String(payload.actorUid || '').startsWith('simulated_user_')) return;
+
+    await db.collection('notifications').add({
+      targetUid: payload.targetUid || 'all',
+      actorUid: payload.actorUid || (currentUserData ? currentUserData.uid : ''),
+      actorName: payload.actorName,
+      actorHandle: payload.actorHandle || '@' + payload.actorName.toLowerCase().replace(/\s+/g, ''),
+      actorAvatar: payload.actorAvatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(payload.actorName)}&background=4f46e5&color=fff`,
+      type: payload.type || 'activity',
+      text: payload.text,
+      itemId: payload.itemId || '',
+      itemCol: payload.itemCol || '',
+      postImg: payload.postImg || '',
+      unread: true,
+      timeMs: Date.now(),
+      createdAt: firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch (e) {}
+}
+
+// ३. डेटाबेसमधील जुने सर्व Fake नोटिफिकेशन्स आपोआप साफ करणे आणि फक्त खरेच दाखवणे
+function listenToRealNotifications() {
+  db.collection('notifications').onSnapshot(snap => {
+    if (!currentUserData) return;
+    const myUid = currentUserData.uid;
+
+    const validNotifs = [];
+    snap.docs.forEach(doc => {
+      const n = doc.data();
+      const isFake = String(n.actorUid || '').startsWith('simulated_user_') ||
+                     String(n.text || '').includes('Instagram Security Alert') ||
+                     !n.actorName || !n.text || String(n.text).includes('undefined');
+
+      // जर फेक नोटिफिकेशन असेल तर डेटाबेसमधून लगेच कायमचे डिलीट करा
+      if (isFake) {
+        db.collection('notifications').doc(doc.id).delete().catch(() => {});
+        return;
+      }
+
+      // फक्त माझ्यासाठी असलेले किंवा फॉलो केलेल्या युजरचे खरे नोटिफिकेशन्स दाखवा
+      if ((n.targetUid === myUid || n.targetUid === 'all') && n.actorUid !== myUid) {
+        validNotifs.push({ id: doc.id, ...n });
+      }
+    });
+
+    cacheNotifications = sortByPinnedAndCreatedDesc(validNotifs);
+    renderProNotificationsList();
+  });
+}
+
+// ४. नोटिफिकेशनवर टच (Click) केल्यावर नेमकी तीच कृती उघडणारे फंक्शन!
+async function handleNotificationClick(notifId) {
+  const n = cacheNotifications.find(x => x.id === notifId);
+  if (!n) return;
+
+  // नोटिफिकेशन विंडो बंद करा
+  closeProNotifications();
+
+  // नोटिफिकेशन वाचले म्हणून मार्क करा
+  if (n.unread) {
+    db.collection('notifications').doc(notifId).update({ unread: false }).catch(() => {});
+  }
+
+  const type = n.type || '';
+  const col = n.itemCol || (type.includes('reel') ? 'reels' : (type.includes('story') ? 'stories' : 'posts'));
+  const itemId = n.itemId || '';
+
+  // A. जर Message चे नोटिफिकेशन असेल -> थेट त्या व्यक्तीचे Chat उघडा!
+  if (type === 'message' || type === 'msg_request') {
+    await startRealChat(n.actorUid, n.actorName, 'Inbox', n.actorAvatar);
+    return;
+  }
+
+  // B. जर Follow चे नोटिफिकेशन असेल -> थेट त्या व्यक्तीची Profile उघडा!
+  if (type === 'follow') {
+    await openUserProfile(n.actorUid);
+    return;
+  }
+
+  // C. जर Comment किंवा Reply किंवा कमेंटमधील Mention असेल -> ती पोस्ट आणि तिचा Comment Box उघडा!
+  if (type === 'comment' || type === 'reply' || type === 'comment_mention') {
+    if (itemId) {
+      openScrollableMediaFeed(col, itemId, 'Post', null, 'public_reel');
+      setTimeout(() => openCommentsModal(itemId, col), 350);
+    } else if (n.actorUid) {
+      openUserProfile(n.actorUid);
+    }
+    return;
+  }
+
+  // D. जर Post Like, Reel Like, नवीन Reel, Story किंवा Post Mention असेल -> थेट ती Post / Reel / Story उघडा!
+  if (itemId) {
+    const headerTitle = col === 'reels' ? 'Reels' : (col === 'stories' ? 'Moments' : 'Posts');
+    openScrollableMediaFeed(col, itemId, headerTitle, null, 'public_reel');
+    return;
+  }
+
+  // E. इतर वेळी त्या युजरची प्रोफाईल उघडा
+  if (n.actorUid) {
+    openUserProfile(n.actorUid);
+  }
+}
+
+// ५. नोटिफिकेशन लिस्ट रेंडर करणे (पूर्ण ओळ टच होणारी + फोटो आणि बटनसह)
+function renderProNotificationsList() {
+  const body = document.getElementById('pro-notif-list-body');
+  if (!body) return;
+
+  if (!cacheNotifications || cacheNotifications.length === 0) {
+    body.innerHTML = `
+      <div style="text-align:center; padding:50px 20px; color:#64748b; font-size:14px;">
+        <i class="fa-regular fa-bell" style="font-size:36px; color:#cbd5e1; display:block; margin-bottom:12px;"></i>
+        🔔 तुमच्या अकाउंटसाठी सध्या कोणतीही नवीन नोटिफिकेशन नाही.<br>
+        <span style="font-size:12px; color:#94a3b8; margin-top:6px; display:inline-block;">(जेव्हा कोणी तुमच्या पोस्टला खरोखर Like, Comment, Follow किंवा Message करेल, तेव्हाच इथे दिसेल)</span>
+      </div>
+    `;
+    return;
+  }
+
+  body.innerHTML = `
+    <div style="padding:14px 16px 6px; font-weight:800; font-size:15px; color:#0f172a;">Activity</div>
+    ${cacheNotifications.map(n => {
+      let iconBadge = '❤️';
+      if (n.type === 'comment' || n.type === 'reply') iconBadge = '💬';
+      else if (n.type === 'follow') iconBadge = '👥';
+      else if (n.type.includes('mention')) iconBadge = '🏷️';
+      else if (n.type === 'message') iconBadge = '✉️';
+      else if (n.type === 'reel' || n.type === 'reel_like') iconBadge = '🎬';
+      else if (n.type === 'story' || n.type === 'live') iconBadge = '🔴';
+
+      let rightSideHTML = '';
+      if (n.postImg && !n.postImg.startsWith('data:video')) {
+        rightSideHTML = `<img src="${n.postImg}" style="width:44px; height:44px; border-radius:8px; object-fit:cover; flex-shrink:0;">`;
+      } else if (n.type === 'follow') {
+        rightSideHTML = `<button onclick="event.stopPropagation(); closeProNotifications(); openUserProfile('${n.actorUid}')" style="background:#2563eb; color:#fff; border:none; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">View</button>`;
+      } else if (n.type === 'message') {
+        rightSideHTML = `<button style="background:#f1f5f9; color:#2563eb; border:none; padding:6px 12px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer;">Reply</button>`;
+      }
+
+      return `
+        <div onclick="handleNotificationClick('${n.id}')" style="display:flex; align-items:center; gap:12px; padding:13px 16px; border-bottom:1px solid #f1f5f9; background:${n.unread ? '#f8fafc' : '#ffffff'}; cursor:pointer;">
+          <div style="position:relative; flex-shrink:0;" onclick="event.stopPropagation(); closeProNotifications(); openUserProfile('${n.actorUid}')">
+            <img src="${n.actorAvatar || 'https://ui-avatars.com/api/?name=U'}" style="width:48px; height:48px; border-radius:50%; object-fit:cover;">
+            <span style="position:absolute; bottom:-2px; right:-2px; font-size:12px; background:#fff; border-radius:50%; padding:1px; box-shadow:0 1px 4px rgba(0,0,0,0.15);">${iconBadge}</span>
+          </div>
+          <div style="flex:1; font-size:13.5px; color:#0f172a; line-height:1.4;">
+            <b>${n.actorHandle || n.actorName}</b> ${n.text}
+            <div style="color:#64748b; font-size:11.5px; margin-top:2px;">${getRelativeTime(n.timeMs)}</div>
+          </div>
+          ${rightSideHTML}
+        </div>
+      `;
+    }).join('')}
+  `;
+}
+
+// =========================================================
+// ६. खऱ्या कृतींमधून (Like, Comment, Mention, Reel, Story) अचूक लिंकसह नोटिफिकेशन पाठवणे
+// =========================================================
+
+// A. पोस्ट किंवा रीलला खरोखर Like केल्यावर (postId आणि फोटोसह)
+async function toggleLikeDislikeItem(itemId, colName = 'posts') {
+  if (!currentUserData) return showToast('⚠️ कृपया आधी लॉगिन करा!');
+  const arr = getCacheArrayByCol(colName);
+  const item = arr.find(x => x.id === itemId);
+  if (!item) return;
+
+  const myUid = currentUserData.uid;
+  let likedBy = Array.isArray(item.likedBy) ? [...item.likedBy] : [];
+  let currentLikes = typeof item.likes === 'number' ? item.likes : likedBy.length;
+
+  if (likedBy.includes(myUid)) {
+    likedBy = likedBy.filter(id => id !== myUid);
+    currentLikes = Math.max(0, currentLikes - 1);
+    await db.collection(colName).doc(itemId).update({ likedBy, likes: currentLikes });
+  } else {
+    likedBy.push(myUid);
+    currentLikes = currentLikes + 1;
+    await db.collection(colName).doc(itemId).update({ likedBy, likes: currentLikes });
+
+    if (item.uid && item.uid !== myUid) {
+      const isReel = colName === 'reels';
+      await pushRealNotification({
+        targetUid: item.uid,
+        type: isReel ? 'reel_like' : 'like',
+        actorUid: currentUserData.uid,
+        actorName: currentUserData.name,
+        actorHandle: currentUserData.handle || '@' + currentUserData.name.toLowerCase().replace(/\s+/g, ''),
+        actorAvatar: currentUserData.avatar,
+        itemId: itemId,
+        itemCol: colName,
+        postImg: (!isReel && item.img) ? item.img : '',
+        text: isReel ? `liked your Reel 🎬: "${(item.caption || '').substring(0, 20)}"` : `liked your post ❤️: "${(item.caption || '').substring(0, 20)}"`
+      });
+    }
+  }
+}
+
+// B. खरोखर Comment केल्यावर किंवा कमेंटमध्ये कोणाचे नाव (@mention) लिहिल्यावर
+async function submitRealComment() {
+  if (!currentUserData || !activeCommentPostId) return;
+  const inp = document.getElementById('pro-comment-input');
+  const txt = inp.value.trim();
+  if (!txt) return;
+
+  const arr = getCacheArrayByCol(activeCommentCollection);
+  const item = arr.find(x => x.id === activeCommentPostId);
+  let currentList = (item && Array.isArray(item.commentsList)) ? [...item.commentsList] : [];
+
+  currentList.push({
+    uid: currentUserData.uid,
+    author: currentUserData.name,
+    avatar: currentUserData.avatar,
+    text: txt,
+    timeMs: Date.now()
+  });
+
+  inp.value = '';
+
+  await db.collection(activeCommentCollection).doc(activeCommentPostId).update({
+    commentsList: currentList,
+    commentsCount: currentList.length
+  });
+
+  // १. पोस्टच्या मालकाला कमेंटचे खरे नोटिफिकेशन पाठवा
+  if (item && item.uid && item.uid !== currentUserData.uid) {
+    await pushRealNotification({
+      targetUid: item.uid,
+      type: 'comment',
+      actorUid: currentUserData.uid,
+      actorName: currentUserData.name,
+      actorHandle: currentUserData.handle || '@user',
+      actorAvatar: currentUserData.avatar,
+      itemId: activeCommentPostId,
+      itemCol: activeCommentCollection,
+      postImg: item.img && !item.img.startsWith('data:video') ? item.img : '',
+      text: `commented 💬: "${txt}"`
+    });
+  }
+
+  // २. जर कमेंटमध्ये कोणाला @mention केले असेल तर त्या युजरलाही खरे नोटिफिकेशन पाठवा
+  if (txt.includes('@')) {
+    cacheAllUsers.forEach(u => {
+      const h = (u.handle || '').toLowerCase();
+      if (h && txt.toLowerCase().includes(h) && u.uid !== currentUserData.uid) {
+        pushRealNotification({
+          targetUid: u.uid,
+          type: 'comment_mention',
+          actorUid: currentUserData.uid,
+          actorName: currentUserData.name,
+          actorHandle: currentUserData.handle || '@user',
+          actorAvatar: currentUserData.avatar,
+          itemId: activeCommentPostId,
+          itemCol: activeCommentCollection,
+          text: `mentioned you in a comment 🏷️: "${txt}"`
+        });
+      }
+    });
+  }
+
+  renderCommentsList(activeCommentPostId);
+}
