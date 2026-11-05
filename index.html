@@ -6,152 +6,21 @@
   <title>ALBIZNET - Connect • Share • Grow</title>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
-  <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: 'Poppins', sans-serif; }
-    body { background: #f8fafc; color: #1e293b; overflow-x: hidden; padding-bottom: 70px; }
-    
-    /* TOAST */
-    #custom-toast { position: fixed; bottom: 80px; left: 50%; transform: translateX(-50%); background: #0f172a; color: white; padding: 10px 20px; border-radius: 30px; font-size: 12px; font-weight: 600; z-index: 9999; display: none; box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
-
-    /* WELCOME SCREEN */
-    #welcome-screen { min-height: 100vh; background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 100%); color: white; padding: 24px; display: flex; flex-direction: column; justify-content: space-between; }
-    .w-top-bar { display: flex; justify-content: flex-end; }
-    .w-lang-pill { background: rgba(255,255,255,0.1); padding: 6px 14px; border-radius: 20px; font-size: 12px; display: flex; align-items: center; gap: 6px; backdrop-filter: blur(5px); }
-    .w-brand-box { text-align: center; margin-top: 20px; }
-    .w-ring-icon { width: 64px; height: 64px; background: linear-gradient(135deg, #38bdf8, #6366f1); border-radius: 20px; display: flex; align-items: center; justify-content: center; font-size: 28px; margin: 0 auto 16px; box-shadow: 0 10px 25px rgba(56,189,248,0.4); }
-    .w-title { font-size: 28px; font-weight: 900; letter-spacing: 1px; }
-    .w-tagline { font-size: 10px; color: #94a3b8; font-weight: 600; letter-spacing: 2px; margin-top: 2px; }
-    .w-welcome-txt { font-size: 22px; font-weight: 800; margin-top: 24px; }
-    .w-welcome-txt span { color: #38bdf8; }
-    .w-sub-txt { font-size: 12px; color: #94a3b8; margin-top: 4px; }
-    
-    .w-bottom-actions { display: flex; flex-direction: column; gap: 12px; }
-    .w-btn-login, .w-btn-signup { width: 100%; padding: 14px 20px; border-radius: 16px; border: none; display: flex; align-items: center; gap: 14px; cursor: pointer; transition: 0.2s; font-size: 14px; }
-    .w-btn-login { background: linear-gradient(135deg, #2563eb, #4f46e5); color: white; font-weight: 700; box-shadow: 0 8px 20px rgba(37,99,235,0.3); }
-    .w-btn-signup { background: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.15); font-weight: 700; }
-    .w-btn-labels { display: flex; flex-direction: column; text-align: left; line-height: 1.2; }
-    .w-btn-labels span { font-size: 10.5px; color: #94a3b8; font-weight: 400; }
-    .w-or-line { text-align: center; font-size: 11px; color: #64748b; margin: 4px 0; }
-    .w-social-icons { display: flex; justify-content: center; gap: 16px; }
-    .w-s-cir { width: 44px; height: 44px; background: rgba(255,255,255,0.08); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); }
-
-    /* MODALS & OVERLAYS */
-    .modal-overlay { position: fixed; inset: 0; background: rgba(15,23,42,0.85); backdrop-filter: blur(8px); display: none; align-items: center; justify-content: center; padding: 20px; z-index: 4000; }
-    .login-popup-card, .google-popup-card, .create-box-card { background: white; width: 100%; max-width: 380px; border-radius: 24px; padding: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.3); }
-    .close-cir-btn { background: #f1f5f9; border: none; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; cursor: pointer; }
-    
-    .neon-input-pill { background: #f8fafc; border: 1.5px solid #e2e8f0; border-radius: 14px; padding: 12px 16px; display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
-    .neon-input-pill input { border: none; background: transparent; outline: none; width: 100%; font-size: 13.5px; color: #1e293b; }
-    .neon-input-pill i { color: #64748b; font-size: 15px; }
-
-    .main-create-btn { width: 100%; background: linear-gradient(135deg, #2563eb, #4f46e5); color: white; border: none; padding: 14px; border-radius: 14px; font-weight: 700; font-size: 14px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 8px 20px rgba(37,99,235,0.25); }
-    .google-white-btn { width: 100%; background: white; border: 1.5px solid #cbd5e1; color: #334155; padding: 12px; border-radius: 14px; font-weight: 700; font-size: 13.5px; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; margin-top: 10px; }
-    .google-white-btn img { width: 18px; height: 18px; }
-    .auth-or-divider { text-align: center; font-size: 11px; color: #94a3b8; margin: 12px 0; font-weight: 600; }
-
-    /* TOP APP HEADER */
-    .top-app-header { background: white; border-bottom: 1px solid #e2e8f0; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
-    .header-brand-box { display: flex; align-items: center; gap: 10px; }
-    .header-logo-a { width: 36px; height: 36px; background: linear-gradient(135deg, #2563eb, #9333ea); border-radius: 12px; color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 18px; box-shadow: 0 4px 12px rgba(37,99,235,0.3); }
-    .header-title { font-size: 15px; font-weight: 900; line-height: 1.1; color: #0f172a; }
-    .header-sub { font-size: 8.5px; color: #64748b; font-weight: 700; letter-spacing: 0.5px; }
-    .header-actions { display: flex; align-items: center; gap: 10px; }
-    .header-search-pill { background: #f1f5f9; padding: 7px 12px; border-radius: 20px; font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 6px; cursor: pointer; }
-    .header-create-btn { background: linear-gradient(135deg, #2563eb, #4f46e5); color: white; border: none; padding: 7px 14px; border-radius: 20px; font-size: 12px; font-weight: 700; cursor: pointer; }
-    .header-bell-btn { width: 34px; height: 34px; background: #f1f5f9; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #334155; position: relative; cursor: pointer; }
-    .bell-dot { position: absolute; top: 7px; right: 7px; width: 7px; height: 7px; background: #ef4444; border-radius: 50%; }
-
-    /* CREATE DROPDOWN */
-    .create-popup-menu { position: absolute; right: 16px; top: 56px; background: white; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.15); width: 180px; padding: 8px; display: none; z-index: 300; border: 1px solid #e2e8f0; }
-    .c-menu-item { padding: 10px 12px; font-size: 12.5px; font-weight: 600; color: #334155; display: flex; align-items: center; gap: 10px; border-radius: 10px; cursor: pointer; transition: 0.1s; }
-    .c-menu-item:hover { background: #f8fafc; color: #2563eb; }
-    .c-menu-Item-divider { height: 1px; background: #e2e8f0; margin: 4px 0; }
-
-    /* BOTTOM NAVIGATION BAR */
-    .bottom-nav-bar { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-top: 1px solid #e2e8f0; height: 60px; display: flex; align-items: center; justify-content: space-around; z-index: 200; box-shadow: 0 -4px 20px rgba(0,0,0,0.05); }
-    .b-nav-item { display: flex; flex-direction: column; align-items: center; gap: 2px; color: #94a3b8; font-size: 10px; font-weight: 600; cursor: pointer; flex: 1; transition: 0.2s; }
-    .b-nav-item i { font-size: 18px; }
-    .b-nav-item.active { color: #2563eb; font-weight: 700; }
-    .msg-badge-count { position: absolute; top: -2px; right: -6px; background: #ef4444; color: white; font-size: 9px; padding: 1px 4px; border-radius: 10px; font-weight: 800; }
-
-    /* FEED & MOMENTS */
-    .moments-scroll-bar { display: flex; gap: 10px; padding: 12px 16px; overflow-x: auto; background: white; border-bottom: 1px solid #e2e8f0; }
-    .moments-scroll-bar::-webkit-scrollbar { display: none; }
-    .your-moment-box { min-width: 64px; height: 84px; background: #f8fafc; border: 1.5px dashed #cbd5e1; border-radius: 16px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 10px; font-weight: 700; color: #475569; position: relative; cursor: pointer; text-align: center; }
-    .story-circle-item { min-width: 64px; text-align: center; cursor: pointer; }
-    .story-grad-ring { width: 64px; height: 64px; border-radius: 50%; padding: 2.5px; background: linear-gradient(135deg, #2563eb, #9333ea); display: flex; align-items: center; justify-content: center; position: relative; }
-    .story-grad-ring img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; border: 2px solid white; }
-    .story-circle-item span { font-size: 10.5px; font-weight: 600; color: #334155; display: block; margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-
-    /* SHORTS SECTION */
-    .shorts-section-card { background: white; margin-top: 10px; padding: 12px 0 16px; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; }
-    .shorts-title-row { padding: 0 16px 10px; font-size: 14px; font-weight: 800; color: #0f172a; }
-    .shorts-scroll-row { display: flex; gap: 12px; padding: 0 16px; overflow-x: auto; }
-    .shorts-scroll-row::-webkit-scrollbar { display: none; }
-    .short-card-item { min-width: 130px; height: 210px; border-radius: 16px; overflow: hidden; position: relative; background: #0f172a; cursor: pointer; }
-    .short-card-item video, .short-card-item img { width: 100%; height: 100%; object-fit: cover; }
-    .short-overlay-info { position: absolute; bottom: 8px; left: 8px; right: 8px; color: white; font-size: 11px; font-weight: 700; text-shadow: 0 1px 3px rgba(0,0,0,0.8); }
-
-    /* POSTS FEED */
-    .feed-posts-wrap { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
-    .post-card { background: white; border-top: 1px solid #e2e8f0; border-bottom: 1px solid #e2e8f0; padding: 12px 16px; }
-    .post-header-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-    .post-author-box { display: flex; align-items: center; gap: 10px; }
-    .post-author-box img { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; }
-    .post-author-box h4 { font-size: 13px; font-weight: 700; color: #0f172a; }
-    .post-author-box p { font-size: 10px; color: #64748b; font-weight: 500; }
-    .post-caption { font-size: 12.5px; color: #334155; margin-bottom: 10px; line-height: 1.4; }
-    .post-media-box { width: 100%; max-height: 380px; border-radius: 14px; overflow: hidden; background: #0f172a; position: relative; }
-    .post-media-box img, .post-media-box video { width: 100%; height: 100%; object-fit: cover; }
-    .post-actions-row { display: flex; align-items: center; justify-content: space-between; padding-top: 10px; font-size: 13px; font-weight: 700; color: #475569; }
-    .post-action-btn { display: flex; align-items: center; gap: 6px; cursor: pointer; background: none; border: none; font-size: 12.5px; font-weight: 700; color: #475569; }
-
-    /* PROFILE SHEETS */
-    .prof-cover-banner { height: 140px; background-size: cover; background-position: center; position: relative; }
-    .prof-top-icon { width: 34px; height: 34px; background: rgba(0,0,0,0.5); backdrop-filter: blur(4px); border: none; border-radius: 50%; color: white; display: flex; align-items: center; justify-content: center; cursor: pointer; position: absolute; top: 12px; }
-    .prof-top-icon.left { left: 12px; }
-    .prof-top-right-group { position: absolute; right: 12px; top: 12px; display: flex; gap: 8px; }
-    .prof-top-icon { position: static; }
-    .prof-body-sheet { background: white; border-radius: 24px 24px 0 0; margin-top: -24px; padding: 16px; position: relative; }
-    .prof-avatar-header { display: flex; align-items: flex-end; gap: 14px; margin-top: -46px; margin-bottom: 12px; }
-    .prof-ring-avatar { width: 84px; height: 84px; border-radius: 50%; padding: 3px; background: white; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-    .prof-ring-avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
-    .prof-title-col h2 { font-size: 18px; font-weight: 800; color: #0f172a; }
-    .p-acc-badge { font-size: 10.5px; font-weight: 700; color: #2563eb; background: #eff6ff; padding: 2px 8px; border-radius: 10px; display: inline-block; margin-top: 2px; }
-    
-    .prof-stats-bar { display: flex; justify-content: space-around; background: #f8fafc; border-radius: 14px; padding: 12px; margin: 12px 0; border: 1px solid #e2e8f0; }
-    .p-stat-col { text-align: center; }
-    .p-stat-col strong { display: block; font-size: 15px; font-weight: 900; color: #0f172a; }
-    .p-stat-col span { font-size: 11px; color: #64748b; font-weight: 600; }
-    .p-stat-divider { width: 1px; background: #cbd5e1; }
-
-    .prof-btn-row { display: flex; gap: 10px; margin-bottom: 14px; }
-    .prof-grad-btn { flex: 1; background: linear-gradient(135deg, #2563eb, #4f46e5); color: white; border: none; padding: 10px; border-radius: 12px; font-weight: 700; font-size: 13px; cursor: pointer; text-align: center; }
-    .prof-light-btn { flex: 1; background: #f1f5f9; color: #334155; border: none; padding: 10px; border-radius: 12px; font-weight: 700; font-size: 13px; cursor: pointer; text-align: center; }
-
-    .prof-sub-tabs { display: flex; justify-content: space-around; border-bottom: 1px solid #e2e8f0; margin-top: 14px; font-size: 13px; font-weight: 700; color: #64748b; }
-    .prof-sub-tabs span { padding: 10px 0; cursor: pointer; border-bottom: 2px solid transparent; }
-    .prof-sub-tabs span.active { color: #2563eb; border-color: #2563eb; }
-
-    .my-moments-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin-top: 10px; }
-    .my-grid-thumb { aspectRatio: 1; border-radius: 8px; overflow: hidden; background: #0f172a; cursor: pointer; }
-    .my-grid-thumb img, .my-grid-thumb video { width: 100%; height: 100%; object-fit: cover; }
-
-    /* MESSAGES TABS */
-    .msg-tabs-row { display: flex; gap: 8px; padding: 10px 16px; background: white; border-bottom: 1px solid #e2e8f0; overflow-x: auto; }
-    .m-tab { padding: 6px 14px; background: #f1f5f9; border-radius: 20px; font-size: 12px; font-weight: 700; color: #64748b; cursor: pointer; white-space: nowrap; }
-    .m-tab.active { background: #2563eb; color: white; }
-  </style>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
 
+  <!-- टोस्ट नोटिफिकेशन -->
   <div id="custom-toast"></div>
 
-  <!-- WELCOME SCREEN -->
+  <!-- =========================================================
+       0. WELCOME LANDING SCREEN (LOG IN & SIGN UP)
+       ========================================================= -->
   <div id="welcome-screen">
     <div class="w-top-bar">
       <div class="w-lang-pill"><i class="fa-solid fa-globe"></i> English <i class="fa-solid fa-chevron-down"></i></div>
     </div>
+
     <div class="w-brand-box">
       <div class="w-ring-icon"><i class="fa-solid fa-ring"></i></div>
       <h1 class="w-title">ALBIZNET</h1>
@@ -159,379 +28,680 @@
       <h2 class="w-welcome-txt">Welcome <span>Back!</span></h2>
       <p class="w-sub-txt">Your world, your people, your space.</p>
     </div>
+
+    <div class="w-hero-friends">
+      <div class="w-float-pill p1"><i class="fa-solid fa-user-group" style="color:#38bdf8;"></i> Make Friends</div>
+      <div class="w-float-pill p2"><i class="fa-solid fa-camera" style="color:#c084fc;"></i> Share Moments</div>
+      <div class="w-float-pill p3"><i class="fa-solid fa-location-dot" style="color:#f472b6;"></i> Explore Places</div>
+    </div>
+
     <div class="w-bottom-actions">
       <button class="w-btn-login" onclick="openLoginModal()">
         <i class="fa-solid fa-arrow-right"></i>
-        <div class="w-btn-labels"><strong>Log In</strong><span>Welcome back, friend</span></div>
+        <div class="w-btn-labels">
+          <strong>Log In</strong>
+          <span>Welcome back, friend</span>
+        </div>
       </button>
+
       <button class="w-btn-signup" onclick="openNeonSignupScreen()">
         <i class="fa-solid fa-user-plus" style="color:#38bdf8;"></i>
-        <div class="w-btn-labels"><strong>Sign Up</strong><span>Create your new account</span></div>
+        <div class="w-btn-labels">
+          <strong>Sign Up</strong>
+          <span>Create your new account</span>
+        </div>
+      </button>
+
+      <div class="w-or-line">or continue with</div>
+      <div class="w-social-icons">
+        <div class="w-s-cir" onclick="openGoogleChooser()"><i class="fa-brands fa-google" style="color:#ea4335;"></i></div>
+        <div class="w-s-cir" onclick="openLoginModal()"><i class="fa-brands fa-facebook-f" style="color:#1877f2;"></i></div>
+        <div class="w-s-cir" onclick="openLoginModal()"><i class="fa-solid fa-mobile-screen"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- LOG IN MODAL -->
+  <div id="login-modal" class="modal-overlay" style="z-index:4200;">
+    <div class="login-popup-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+        <h3 style="color:#38bdf8; font-size:18px; font-weight:800;">Log In to ALBIZNET</h3>
+        <button onclick="closeLoginModal()" class="close-cir-btn">✕</button>
+      </div>
+      <div class="neon-input-pill">
+        <i class="fa-solid fa-mobile-screen"></i>
+        <input type="text" id="login-id-input" placeholder="Mobile Number किंवा Gmail टाका">
+      </div>
+      <div class="neon-input-pill">
+        <i class="fa-solid fa-lock"></i>
+        <input type="password" id="login-pass-input" placeholder="Enter Password किंवा OTP">
+      </div>
+      <div style="text-align:right; margin-bottom:12px;">
+        <span onclick="sendQuickLoginOTP()" style="color:#00f2fe; font-size:12px; font-weight:700; cursor:pointer;">📱 Send Quick OTP</span>
+      </div>
+      <button class="main-create-btn" onclick="handleLoginSubmit()">
+        <i class="fa-solid fa-right-to-bracket"></i>
+        <span>Log In Now</span>
+      </button>
+      <div class="auth-or-divider">OR</div>
+      <button class="google-white-btn" onclick="closeLoginModal(); openGoogleChooser();">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
+        <span>Log In with Google</span>
       </button>
     </div>
   </div>
 
-  <!-- LOGIN MODAL -->
-  <div id="login-modal" class="modal-overlay">
-    <div class="login-popup-card">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
-        <h3 style="color:#2563eb; font-size:18px; font-weight:800;">Log In to ALBIZNET</h3>
-        <button onclick="closeLoginModal()" class="close-cir-btn">✕</button>
-      </div>
-      <div class="neon-input-pill"><i class="fa-solid mobile-screen"></i><input type="text" id="login-id-input" placeholder="Mobile Number किंवा Gmail टाका"></div>
-      <div class="neon-input-pill"><i class="fa-solid fa-lock"></i><input type="password" id="login-pass-input" placeholder="Password टाका"></div>
-      <button class="main-create-btn" onclick="handleLoginSubmit()"><i class="fa-solid fa-right-to-bracket"></i> <span>Log In Now</span></button>
-    </div>
-  </div>
-
-  <!-- SIGN UP SCREEN -->
-  <div id="auth-screen" style="display:none; padding:16px;">
-    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+  <!-- =========================================================
+       1. NEON SIGN UP SCREEN (PEOPLE & BUSINESS ACCOUNT)
+       ========================================================= -->
+  <div id="auth-screen" style="display:none;">
+    <div class="auth-top-brand" style="justify-content:space-between;">
       <button onclick="backToWelcomeScreen()" class="close-cir-btn"><i class="fa-solid fa-arrow-left"></i></button>
-      <h3 style="font-weight:800;">Create Account</h3>
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div class="auth-logo-mark">A</div>
+        <div>
+          <div class="auth-brand-title">ALBIZNET</div>
+          <div class="auth-brand-sub">Connect &bull; Share &bull; Grow</div>
+        </div>
+      </div>
       <button onclick="backToWelcomeScreen()" class="close-cir-btn">✕</button>
     </div>
-    <div style="display:flex; gap:10px; margin-bottom:14px;">
-      <button id="btn-p-acc" onclick="switchAuthAccount('people')" style="flex:1; padding:10px; border-radius:12px; border:none; font-weight:700; background:#2563eb; color:white;">People Account</button>
-      <button id="btn-b-acc" onclick="switchAuthAccount('business')" style="flex:1; padding:10px; border-radius:12px; border:none; font-weight:700; background:#f1f5f9; color:#475569;">Business Account</button>
+
+    <div class="auth-hero-banner">
+      <div class="auth-hero-overlay">
+        <h2 id="auth-heading">Create <span>People</span> Account</h2>
+        <p id="auth-subheading">Join ALBIZNET and be a part of our growing community</p>
+      </div>
     </div>
-    <div class="neon-input-pill"><i class="fa-solid fa-user"></i><input type="text" id="reg-name" placeholder="Full Name / Business Name"></div>
-    <div class="neon-input-pill"><i class="fa-solid fa-location-dot"></i><input type="text" id="reg-loc" value="Ardhapur, Maharashtra" placeholder="Location"></div>
-    <div class="neon-input-pill"><i class="fa-solid fa-lock"></i><input type="password" id="reg-pass" placeholder="Create Password"></div>
-    <button class="main-create-btn" onclick="submitRegistration()">Create Account & Start</button>
+
+    <div class="neon-toggle-row">
+      <div class="neon-tab active" id="tab-acc-people" onclick="switchAuthAccount('people')">
+        <i class="fa-solid fa-user-group"></i>
+        <span>People</span>
+        <i class="fa-solid fa-circle-check check-mark"></i>
+      </div>
+      <div class="neon-tab" id="tab-acc-business" onclick="switchAuthAccount('business')">
+        <i class="fa-solid fa-store"></i>
+        <span>Business</span>
+        <i class="fa-solid fa-circle-check check-mark"></i>
+      </div>
+    </div>
+
+    <div class="auth-form-wrap">
+      <div id="auth-people-fields">
+        <div class="neon-input-pill">
+          <i class="fa-solid fa-user"></i>
+          <input type="text" id="reg-p-name" placeholder="Full Name">
+          <span class="req-star">*</span>
+        </div>
+        <div class="neon-input-pill">
+          <i class="fa-solid fa-calendar-days"></i>
+          <input type="text" id="reg-p-dob" placeholder="Date of Birth (DD / MM / YYYY)" onfocus="(this.type='date')" onblur="if(!this.value)this.type='text'">
+          <span class="req-star">*</span>
+        </div>
+      </div>
+
+      <div id="auth-business-fields" style="display:none;">
+        <div class="neon-input-pill">
+          <i class="fa-solid fa-store"></i>
+          <input type="text" id="reg-b-name" placeholder="Business Name">
+          <span class="req-star">*</span>
+        </div>
+        <div class="neon-input-pill">
+          <i class="fa-solid fa-table-cells-large"></i>
+          <input type="text" id="reg-b-cat" placeholder="Business Category (Shops, Services, Restaurants)">
+          <span class="req-star">*</span>
+        </div>
+      </div>
+
+      <div class="loc-gps-row">
+        <div class="neon-input-pill" style="flex:1; margin-bottom:0;">
+          <i class="fa-solid fa-location-dot"></i>
+          <input type="text" id="reg-location" placeholder="Location (City / Area)" value="Ardhapur, Maharashtra">
+        </div>
+        <button class="use-gps-btn" onclick="detectUserGPS('reg-location')">
+          <i class="fa-solid fa-location-crosshairs"></i> Use GPS
+        </button>
+        <span class="req-star">*</span>
+      </div>
+
+      <div id="auth-biz-about-wrap" style="display:none; margin-top:10px;">
+        <div class="neon-input-pill">
+          <i class="fa-solid fa-circle-info"></i>
+          <input type="text" id="reg-b-about" placeholder="About Your Business">
+          <span class="req-star">*</span>
+        </div>
+      </div>
+
+      <div class="verify-label">Choose Your Verification Method</div>
+      <div class="neon-toggle-row" style="margin-bottom:10px;">
+        <div class="neon-tab active" id="tab-ver-mobile" onclick="switchVerifyTab('mobile')">
+          <i class="fa-solid fa-mobile-screen-button"></i>
+          <span>Mobile Number</span>
+          <i class="fa-solid fa-circle-check check-mark"></i>
+        </div>
+        <div class="neon-tab" id="tab-ver-email" onclick="switchVerifyTab('email')">
+          <i class="fa-solid fa-envelope"></i>
+          <span>Gmail Address</span>
+          <i class="fa-solid fa-circle-check check-mark"></i>
+        </div>
+      </div>
+
+      <div class="neon-input-pill" id="ver-mobile-box">
+        <i class="fa-solid fa-mobile-screen"></i>
+        <input type="tel" id="reg-mobile" placeholder="Enter Mobile Number">
+        <span class="req-star">*</span>
+      </div>
+      <div class="neon-input-pill" id="ver-email-box" style="display:none;">
+        <i class="fa-solid fa-envelope"></i>
+        <input type="email" id="reg-email" placeholder="Enter Gmail Address">
+        <span class="req-star">*</span>
+      </div>
+
+      <div style="text-align:center; margin:10px 0;">
+        <button class="get-otp-gradient-btn" onclick="triggerAuthOTP()">
+          <i class="fa-solid fa-paper-plane"></i> Get OTP
+        </button>
+      </div>
+
+      <div class="neon-input-pill">
+        <i class="fa-solid fa-shield-halved"></i>
+        <input type="number" id="reg-otp" placeholder="Enter 4-Digit OTP">
+        <span class="otp-timer-txt"><i class="fa-regular fa-clock"></i> <span id="otp-countdown">00:59</span></span>
+      </div>
+
+      <div class="neon-input-pill">
+        <i class="fa-solid fa-lock"></i>
+        <input type="password" id="reg-pass" placeholder="Create Password">
+        <i class="fa-regular fa-eye-slash pass-eye" onclick="togglePassVis('reg-pass', this)"></i>
+        <span class="req-star">*</span>
+      </div>
+      <div class="neon-input-pill">
+        <i class="fa-solid fa-lock"></i>
+        <input type="password" id="reg-confirm-pass" placeholder="Confirm Password">
+        <i class="fa-regular fa-eye-slash pass-eye" onclick="togglePassVis('reg-confirm-pass', this)"></i>
+        <span class="req-star">*</span>
+      </div>
+
+      <label class="terms-row">
+        <input type="checkbox" id="reg-terms" checked>
+        <span>I agree to the <b>Terms &amp; Conditions</b> and <b>Privacy Policy</b> <b style="color:#ef4444;">*</b></span>
+      </label>
+
+      <button class="main-create-btn" id="main-submit-btn" onclick="submitRegistration()">
+        <i class="fa-solid fa-user-plus" id="main-submit-icon"></i>
+        <span id="main-submit-txt">Create Account</span>
+        <i class="fa-solid fa-chevron-right" style="margin-left:auto;"></i>
+      </button>
+
+      <div class="auth-or-divider">OR</div>
+
+      <button class="google-white-btn" onclick="openGoogleChooser()">
+        <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
+        <span>Sign Up with Google</span>
+      </button>
+    </div>
   </div>
 
-  <!-- MAIN APP SHELL -->
+  <!-- =========================================================
+       2. GOOGLE ACCOUNT CHOOSER MODAL
+       ========================================================= -->
+  <div id="google-chooser-modal" class="modal-overlay" style="z-index:4500;">
+    <div class="google-popup-card">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" class="g-top-logo">
+      <h3>Sign in with Google</h3>
+      <p>Choose an account</p>
+      <div id="google-accounts-list"></div>
+      <div class="g-acc-row" onclick="promptCustomGoogleAccount()">
+        <div class="g-avatar-icon" style="background:#f1f5f9; color:#334155;"><i class="fa-solid fa-user-plus"></i></div>
+        <div class="g-acc-mail">Use another account</div>
+      </div>
+      <div id="custom-g-input-box" style="display:none; padding:10px 0;">
+        <input type="text" id="custom-g-name" placeholder="तुमचे किंवा व्यवसायाचे नाव" class="g-custom-field">
+        <input type="email" id="custom-g-email" placeholder="yourname@gmail.com" class="g-custom-field">
+        <button class="g-continue-btn" onclick="loginWithCustomGoogle()">Continue</button>
+      </div>
+      <button class="g-cancel-btn" onclick="closeGoogleChooser()">Cancel</button>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       3. MAIN APP SHELL (HOME, EXPLORE, NEARBY, MESSAGE, ME)
+       ========================================================= -->
   <div id="main-app-shell" style="display:none;">
-    <header class="top-app-header">
+
+    <header class="top-app-header" id="main-top-header">
       <div class="header-brand-box">
         <div class="header-logo-a">A</div>
         <div>
           <div class="header-title">ALBIZNET</div>
-          <div class="header-sub">CONNECT &bull; SHARE &bull; GROW</div>
+          <div class="header-sub">Connect &bull; Share &bull; Grow</div>
         </div>
       </div>
+
       <div class="header-actions">
-        <div class="header-search-pill" onclick="switchBottomNav('explore')"><i class="fa-solid fa-magnifying-glass"></i> Search</div>
+        <div class="header-search-pill" onclick="switchBottomNav('explore')">
+          <i class="fa-solid fa-magnifying-glass"></i> Search
+        </div>
         <div style="position:relative;">
           <button class="header-create-btn" onclick="toggleCreatePopupMenu(event)">+ Create</button>
           <div id="create-dropdown-menu" class="create-popup-menu">
-            <div class="c-menu-item" onclick="openCreateModal('Post')"><i class="fa-regular fa-pen-to-square"></i> Post</div>
-            <div class="c-menu-item" onclick="openCreateModal('Reel')"><i class="fa-solid fa-clapperboard"></i> Reel</div>
-            <div class="c-menu-item" onclick="openCreateModal('Job')" style="color:#16a34a;"><i class="fa-solid fa-briefcase"></i> Job Opening 💼</div>
+            <div class="c-menu-item" onclick="openCreateContentModal('Post')"><i class="fa-regular fa-pen-to-square"></i> Post</div>
+            <div class="c-menu-item" onclick="openCreateContentModal('Story')"><i class="fa-solid fa-circle-plus"></i> Story</div>
+            <div class="c-menu-item" onclick="openCreateContentModal('Reel')"><i class="fa-solid fa-clapperboard"></i> Reel</div>
+            <div class="c-menu-item" onclick="openCreateContentModal('Live')"><i class="fa-solid fa-tower-broadcast"></i> Live</div>
+            <div class="c-menu-item" onclick="openCreateContentModal('Note')"><i class="fa-regular fa-comment-dots"></i> Note</div>
             <div class="c-menu-Item-divider"></div>
-            <div class="c-menu-item" onclick="openCreateModal('Product')" style="color:#7e22ce;"><i class="fa-solid fa-bag-shopping"></i> Product 🛍️</div>
+            <div class="c-menu-item" onclick="openCreateContentModal('Offer')" style="color:#4f46e5;"><i class="fa-solid fa-tags"></i> Offer 🏷️</div>
+            <div class="c-menu-item" onclick="openCreateContentModal('Product')" style="color:#7e22ce;"><i class="fa-solid fa-bag-shopping"></i> Product 🛍️</div>
           </div>
+        </div>
+        <div class="header-bell-btn" onclick="showToast('🔔 3 नवीन नोटिफिकेशन्स आहेत!')">
+          <i class="fa-regular fa-bell"></i>
+          <span class="bell-dot"></span>
         </div>
       </div>
     </header>
 
-    <!-- HOME VIEW -->
+    <!-- TAB 1: HOME FEED VIEW -->
     <div id="view-home" class="app-tab-view">
       <div class="moments-scroll-bar">
-        <div class="your-moment-box" onclick="openCreateModal('Story')">
-          <i class="fa-solid fa-camera" style="font-size:16px;"></i><span>Your<br>Moment</span>
+        <div class="your-moment-box" onclick="openCreateContentModal('Story')">
+          <div class="cam-icon-wrap"><i class="fa-solid fa-camera"></i></div>
+          <span>Your<br>Moment</span>
+          <div class="plus-mini-badge">+</div>
         </div>
-        <div class="story-circle-item">
-          <div class="story-grad-ring"><img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80"></div>
-          <span>Vijay</span>
+        <div class="story-circle-item" onclick="openImageLightbox('https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=600&q=80', 'Rohit\'s Moment')">
+          <div class="story-grad-ring"><img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80"><span class="story-plus">+</span></div>
+          <span>Rohit</span>
+        </div>
+        <div class="story-circle-item" onclick="openImageLightbox('https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=600&q=80', 'Sneha\'s Moment')">
+          <div class="story-grad-ring"><img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80"></div>
+          <span>Sneha</span>
+        </div>
+        <div class="story-circle-item" onclick="openImageLightbox('https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=600&q=80', 'Aditya\'s Moment')">
+          <div class="story-grad-ring"><img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80"></div>
+          <span>Aditya</span>
+        </div>
+        <div class="story-circle-item" onclick="openImageLightbox('https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=600&q=80', 'Pooja\'s Moment')">
+          <div class="story-grad-ring"><img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80"></div>
+          <span>Pooja</span>
         </div>
       </div>
 
       <div class="shorts-section-card">
-        <div class="shorts-title-row">Shorts &amp; Reels ⚡</div>
-        <div class="shorts-scroll-row" id="reels-container">
-          <!-- Dynamically loaded with Double Tap Vibe / Single Tap Pause -->
+        <div class="shorts-title-row">
+          <h3>Shorts &amp; Reels ⚡</h3>
         </div>
+        <div class="shorts-scroll-row" id="reels-container"></div>
       </div>
 
       <div id="home-posts-feed" class="feed-posts-wrap"></div>
     </div>
 
-    <!-- EXPLORE VIEW -->
-    <div id="view-explore" class="app-tab-view" style="display:none; padding:16px;">
-      <h2 style="font-size:16px; font-weight:800; margin-bottom:12px;">Explore ALBIZNET 🌍</h2>
-      <div class="neon-input-pill"><i class="fa-solid fa-magnifying-glass"></i><input type="text" placeholder="Search posts, offers, trends..."></div>
+    <!-- TAB 2: EXPLORE VIEW -->
+    <div id="view-explore" class="app-tab-view" style="display:none;">
+      <div class="subpage-search-wrap">
+        <div class="search-input-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="explore-search-input" placeholder="Search people, businesses, posts..." onkeyup="renderExploreOffers()">
+        </div>
+      </div>
+      <div class="filter-chips-scroll">
+        <span class="f-chip active" onclick="selectExploreChip('Offers', this)">🛍️ Offers</span>
+        <span class="f-chip" onclick="selectExploreChip('Jobs', this)">💼 Jobs</span>
+        <span class="f-chip" onclick="selectExploreChip('Trending Reels', this)">🎬 Trending Reels</span>
+        <span class="f-chip" onclick="selectExploreChip('News', this)">📰 News</span>
+        <span class="f-chip" onclick="selectExploreChip('Food', this)">🍔 Food</span>
+      </div>
+      <div class="explore-heading">आजूबाजूच्या ऑफर्स 🏷️ or Explore Offers</div>
+      <div id="explore-offers-list" class="offers-list-container"></div>
     </div>
 
-    <!-- NEARBY VIEW -->
-    <div id="view-nearby" class="app-tab-view" style="display:none; padding:16px;">
-      <h2 style="font-size:16px; font-weight:800; margin-bottom:12px;">Nearby Businesses 🏪</h2>
-      <p style="font-size:12px; color:#64748b;">Local stores and shops in your area.</p>
+    <!-- TAB 3: NEARBY VIEW -->
+    <div id="view-nearby" class="app-tab-view" style="display:none;">
+      <div class="nearby-top-bar">
+        <div>
+          <h1 class="nearby-big-title">Nearby</h1>
+          <div class="nearby-sub-loc"><i class="fa-solid fa-location-dot" style="color:#4f46e5;"></i> <span id="nearby-user-loc-txt">Ardhapur, Maharashtra</span></div>
+        </div>
+        <button class="map-view-pill-btn" onclick="openGoogleMapLink('Ardhapur, Maharashtra')">Map View 🗺️</button>
+      </div>
+      <div class="subpage-search-wrap" style="padding-top:4px;">
+        <div class="search-input-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="nearby-search-input" placeholder="Search nearby businesses, services..." onkeyup="renderNearbyStores()">
+        </div>
+      </div>
+      <div class="filter-chips-scroll">
+        <span class="f-chip active-blue" onclick="filterNearbyCat('All', this)">🌐 All</span>
+        <span class="f-chip" onclick="filterNearbyCat('Shops', this)">🏪 Shops</span>
+        <span class="f-chip" onclick="filterNearbyCat('Services', this)">🛠️ Services</span>
+        <span class="f-chip" onclick="filterNearbyCat('Restaurants', this)">🍽️ Restaurants</span>
+        <span class="f-chip" onclick="filterNearbyCat('Deals', this)">🏷️ Deals</span>
+      </div>
+      <div id="nearby-stores-list" class="nearby-list-wrap"></div>
     </div>
 
-    <!-- MESSAGE VIEW -->
+    <!-- TAB 4: MESSAGES VIEW -->
     <div id="view-messages" class="app-tab-view" style="display:none;">
-      <div class="msg-tabs-row" id="message-tabs-container">
-        <span class="m-tab active">Inbox</span>
-        <!-- Marketplace & Unread will conditionally render here only if Business Account -->
-      </div>
-      <div id="messages-chat-list" style="padding:10px 16px;">
-        <!-- Clean Chat Item without 3 dots -->
-        <div style="background:white; padding:12px; border-radius:12px; display:flex; align-items:center; gap:12px; border:1px solid #e2e8f0;">
-          <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80" style="width:40px; height:40px; border-radius:50%; object-fit:cover;">
-          <div style="flex:1;">
-            <h4 style="font-size:13px; font-weight:700;">Vijay Duthade</h4>
-            <p style="font-size:11px; color:#64748b;">Hello! Check out this new vibe.</p>
-          </div>
-          <span style="width:8px; height:8px; background:#2563eb; border-radius:50%;"></span>
+      <div class="msg-top-header">
+        <div class="header-logo-a" style="width:32px; height:32px; font-size:16px;">A</div>
+        <div>
+          <div class="header-title" style="font-size:18px;">ALBIZNET</div>
+          <div class="header-sub">CONNECT &bull; SHARE &bull; GROW</div>
         </div>
       </div>
+      <div class="subpage-search-wrap">
+        <div class="search-input-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="msg-search-input" placeholder="Search messages..." onkeyup="renderMessagesList()">
+          <i class="fa-solid fa-microphone" style="color:#64748b;"></i>
+        </div>
+      </div>
+      <div class="moments-scroll-bar" style="padding-top:4px;">
+        <div class="your-note-card" onclick="openCreateContentModal('Note')">Your<br>note</div>
+        <div class="story-circle-item"><div class="story-grad-ring"><img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=200&q=80"></div><span>Rohit</span></div>
+        <div class="story-circle-item"><div class="story-grad-ring"><img src="https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80"></div><span>Sneha</span></div>
+        <div class="story-circle-item"><div class="story-grad-ring"><img src="https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&w=200&q=80"></div><span>Aditya</span></div>
+      </div>
+      <h2 class="messages-sec-title">Messages</h2>
+      <div class="msg-tabs-row">
+        <span class="m-tab active" onclick="switchMsgTab('Inbox', this)">Inbox</span>
+        <span class="m-tab" onclick="switchMsgTab('Unread', this)">Unread</span>
+        <span class="m-tab" onclick="switchMsgTab('Marketplace', this)">Marketplace</span>
+        <span class="m-tab" onclick="switchMsgTab('Request', this)">Request</span>
+      </div>
+      <div id="messages-chat-list" class="chat-list-box"></div>
     </div>
 
-    <!-- PROFILE VIEW -->
+    <!-- TAB 5: ME / PROFILE VIEW (PEOPLE & BUSINESS) -->
     <div id="view-profile" class="app-tab-view" style="display:none;">
-      <div class="prof-cover-banner" style="background-image:url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=900&q=80');">
-        <div class="prof-top-right-group">
-          <button class="prof-top-icon" onclick="openSettingsScreen()"><i class="fa-solid fa-gear"></i></button>
-        </div>
-      </div>
-      <div class="prof-body-sheet">
-        <div class="prof-avatar-header">
-          <div class="prof-ring-avatar"><img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80"></div>
-          <div class="prof-title-col">
-            <h2 id="profile-display-name">Akshay Patil</h2>
-            <span class="p-acc-badge" id="profile-type-badge"><i class="fa-solid fa-user"></i> Personal Account</span>
+      <!-- 5A: PEOPLE PROFILE (WITH FOLLOW BUTTON & WORKING TABS) -->
+      <div id="people-profile-box">
+        <div class="prof-cover-banner" style="background-image:url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=900&q=80');">
+          <button class="prof-top-icon left" onclick="switchBottomNav('home')"><i class="fa-solid fa-arrow-left"></i></button>
+          <div class="prof-top-right-group">
+            <button class="prof-top-icon" onclick="openSettingsScreen()"><i class="fa-solid fa-gear"></i></button>
           </div>
         </div>
-        <div class="prof-stats-bar">
-          <div class="p-stat-col"><strong>1.2K</strong><span>Vibes</span></div>
-          <div class="p-stat-divider"></div>
-          <div class="p-stat-col"><strong>480</strong><span>Following</span></div>
-          <div class="p-stat-divider"></div>
-          <div class="p-stat-col"><strong>24</strong><span>Posts</span></div>
-        </div>
-        <div class="prof-sub-tabs">
-          <span class="active">Posts</span>
-          <span>Vibes</span>
-          <span>Saved</span>
-        </div>
-        <div class="my-moments-grid" id="profile-media-grid"></div>
-      </div>
-    </div>
 
-    <!-- BOTTOM NAVIGATION BAR -->
-    <nav class="bottom-nav-bar">
-      <div class="b-nav-item active" id="bnav-home" onclick="switchBottomNav('home')"><i class="fa-solid fa-house"><span>Home</span></i></div>
-      <div class="b-nav-item" id="bnav-explore" onclick="switchBottomNav('explore')"><i class="fa-solid fa-compass"><span>Explore</span></i></div>
-      <div class="b-nav-item" id="bnav-nearby" onclick="switchBottomNav('nearby')"><i class="fa-solid fa-location-dot"><span>Nearby</span></i></div>
-      <div class="b-nav-item" id="bnav-messages" onclick="switchBottomNav('messages')"><i class="fa-solid fa-comment-dots"><span>Message</span></i></div>
-      <div class="b-nav-item" id="bnav-profile" onclick="switchBottomNav('profile')"><i class="fa-solid fa-user"><span>Me</span></i></div>
-    </nav>
-  </div>
-
-  <!-- SETTINGS MODAL -->
-  <div id="settings-modal" class="modal-overlay">
-    <div style="background:white; width:100%; max-width:400px; height:85vh; border-radius:24px 24px 0 0; padding:20px; overflow-y:auto; position:fixed; bottom:0;">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
-        <h3 style="font-size:16px; font-weight:800;">Settings &amp; Privacy</h3>
-        <button onclick="closeSettingsScreen()" class="close-cir-btn">✕</button>
-      </div>
-      <div id="settings-options-list" style="display:flex; flex-direction:column; gap:10px; font-size:13px; font-weight:600; color:#334155;">
-        <!-- Dynamically rendered based on account type (People or Business) without switch account option -->
-      </div>
-      <button onclick="logoutCurrentUser()" style="width:100%; margin-top:20px; background:#fee2e2; color:#ef4444; border:none; padding:12px; border-radius:12px; font-weight:700;">Log Out</button>
-    </div>
-  </div>
-
-  <!-- CREATE MODAL -->
-  <div id="create-modal" class="modal-overlay">
-    <div class="create-box-card">
-      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
-        <h3 id="create-title-heading" style="font-size:16px; font-weight:800;">Create Content</h3>
-        <button onclick="closeCreateModal()" class="close-cir-btn">✕</button>
-      </div>
-      <input type="text" id="create-caption-input" placeholder="What's on your mind or Job title..." class="neon-input-pill" style="width:100%; margin-bottom:12px;">
-      <button class="main-create-btn" onclick="publishContentItem()">Publish Now 🚀</button>
-    </div>
-  </div>
-
-  <script>
-    let currentUserType = 'people'; // 'people' or 'business'
-
-    function showToast(msg) {
-      const t = document.getElementById('custom-toast');
-      t.innerText = msg;
-      t.style.display = 'block';
-      setTimeout(() => { t.style.display = 'none'; }, 2500);
-    }
-
-    function openLoginModal() { document.getElementById('login-modal').style.display = 'flex'; }
-    function closeLoginModal() { document.getElementById('login-modal').style.display = 'none'; }
-    
-    function openNeonSignupScreen() {
-      document.getElementById('welcome-screen').style.display = 'none';
-      document.getElementById('auth-screen').style.display = 'block';
-    }
-    function backToWelcomeScreen() {
-      document.getElementById('auth-screen').style.display = 'none';
-      document.getElementById('welcome-screen').style.display = 'flex';
-    }
-
-    function switchAuthAccount(type) {
-      currentUserType = type;
-      if(type === 'people') {
-        document.getElementById('btn-p-acc').style.background = '#2563eb';
-        document.getElementById('btn-p-acc').style.color = 'white';
-        document.getElementById('btn-b-acc').style.background = '#f1f5f9';
-        document.getElementById('btn-b-acc').style.color = '#475569';
-      } else {
-        document.getElementById('btn-b-acc').style.background = '#2563eb';
-        document.getElementById('btn-b-acc').style.color = 'white';
-        document.getElementById('btn-p-acc').style.background = '#f1f5f9';
-        document.getElementById('btn-p-acc').style.color = '#475569';
-      }
-    }
-
-    function handleLoginSubmit() {
-      closeLoginModal();
-      launchMainApp();
-    }
-    function submitRegistration() {
-      document.getElementById('auth-screen').style.display = 'none';
-      launchMainApp();
-    }
-
-    function launchMainApp() {
-      document.getElementById('welcome-screen').style.display = 'none';
-      document.getElementById('main-app-shell').style.display = 'block';
-      renderHomeFeed();
-      renderReels();
-      updateMessageTabsForAccount();
-    }
-
-    function switchBottomNav(tab) {
-      ['home', 'explore', 'nearby', 'messages', 'profile'].forEach(t => {
-        document.getElementById('view-' + t).style.display = (t === tab) ? 'block' : 'none';
-        const navEl = document.getElementById('bnav-' + t);
-        if(navEl) navEl.className = (t === tab) ? 'b-nav-item active' : 'b-nav-item';
-      });
-    }
-
-    function toggleCreatePopupMenu(e) {
-      e.stopPropagation();
-      const menu = document.getElementById('create-dropdown-menu');
-      menu.style.display = (menu.style.display === 'block') ? 'none' : 'block';
-    }
-    window.onclick = () => { document.getElementById('create-dropdown-menu').style.display = 'none'; };
-
-    function openCreateModal(type) {
-      document.getElementById('create-title-heading').innerText = 'Create ' + type;
-      document.getElementById('create-modal').style.display = 'flex';
-    }
-    function closeCreateModal() { document.getElementById('create-modal').style.display = 'none'; }
-    function publishContentItem() {
-      closeCreateModal();
-      showToast('🚀 Successfully Published!');
-      renderHomeFeed();
-    }
-
-    // REELS WITH DOUBLE TAP VIBE & SINGLE TAP PAUSE ⏯️
-    function renderReels() {
-      const container = document.getElementById('reels-container');
-      container.innerHTML = `
-        <div class="short-card-item" ondblclick="toggleReelVibe(this)" onclick="toggleVideoPlay(this)">
-          <video src="https://assets.mixkit.co/videos/preview/mixkit-girl-in-neon-sign-lights-41618-large.mp4" muted loop playsinline></video>
-          <div class="short-overlay-info">
-            <p>@akshaypatil</p>
-            <span class="vibe-count-txt">❤️ 142 Vibes</span>
-          </div>
-        </div>
-        <div class="short-card-item" ondblclick="toggleReelVibe(this)" onclick="toggleVideoPlay(this)">
-          <video src="https://assets.mixkit.co/videos/preview/mixkit-aerial-view-of-city-traffic-at-night-41508-large.mp4" muted loop playsinline></video>
-          <div class="short-overlay-info">
-            <p>@royal_store</p>
-            <span class="vibe-count-txt">❤️ 389 Vibes</span>
-          </div>
-        </div>
-      `;
-    }
-
-    function toggleVideoPlay(card) {
-      const vid = card.querySelector('video');
-      if(vid.paused) {
-        vid.play();
-        showToast('▶️ Playing Video');
-      } else {
-        vid.pause();
-        showToast('⏸️ Paused');
-      }
-    }
-
-    function toggleReelVibe(card) {
-      const txt = card.querySelector('.vibe-count-txt');
-      showToast('✨ Vibe Updated!');
-    }
-
-    // HOME FEED
-    function renderHomeFeed() {
-      const feed = document.getElementById('home-posts-feed');
-      feed.innerHTML = `
-        <div class="post-card">
-          <div class="post-header-row">
-            <div class="post-author-box">
-              <img src="https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=100&q=80">
-              <div><h4>Vijay Duthade</h4><p>Nanded &bull; Just now</p></div>
+        <div class="prof-body-sheet">
+          <div class="prof-avatar-header">
+            <div class="prof-ring-avatar" onclick="openImageLightbox(document.getElementById('p-prof-avatar').src, document.getElementById('p-prof-name').innerText)">
+              <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=300&q=80" id="p-prof-avatar">
+            </div>
+            <div class="prof-title-col">
+              <h2 id="p-prof-name">Akshay Patil</h2>
+              <span class="p-acc-badge"><i class="fa-solid fa-user"></i> Personal Account</span>
             </div>
           </div>
-          <div class="post-caption">Exploring new features on ALBIZNET! #Albiznet #Growth</div>
-          <div class="post-media-box"><img src="https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=700&q=80"></div>
-          <div class="post-actions-row">
-            <button class="post-action-btn" onclick="togglePostVibe(this)"><i class="fa-regular fa-heart" style="color:#ef4444;"></i> <span class="v-num">45</span> Vibes</button>
-            <button class="post-action-btn" onclick="openCommentsModal()"><i class="fa-regular fa-comment"></i> Comments</button>
+
+          <div class="prof-stats-bar">
+            <div class="p-stat-col"><strong id="p-stat-followers">0</strong><span>Followers</span></div>
+            <div class="p-stat-divider"></div>
+            <div class="p-stat-col"><strong id="p-stat-following">0</strong><span>Following</span></div>
+            <div class="p-stat-divider"></div>
+            <div class="p-stat-col"><strong id="p-stat-posts">0</strong><span>Posts</span></div>
+          </div>
+
+          <!-- Follow & Message Buttons (Exact match to Image 6) -->
+          <div class="prof-btn-row">
+            <button class="prof-grad-btn" id="p-follow-btn" onclick="toggleFollowPeopleProfile()">
+              <i class="fa-solid fa-user-plus"></i> Follow
+            </button>
+            <button class="prof-light-btn" onclick="switchBottomNav('messages')">
+              <i class="fa-solid fa-comment-dots"></i> Message
+            </button>
+          </div>
+
+          <div class="prof-bio-lines">
+            <p>Dream Big &bull; Work Hard &bull; Stay Positive ❤️</p>
+            <p>Tech Lover | Traveler | Creator 🎬</p>
+            <p>Make a Difference in Life... 👌</p>
+            <div class="prof-meta-row"><i class="fa-solid fa-location-dot"></i> <span id="p-prof-loc">Ardhapur, Maharashtra</span></div>
+            <div class="prof-meta-row"><i class="fa-regular fa-calendar-days"></i> Joined Oct 2026</div>
+          </div>
+
+          <div class="prof-about-box">
+            <h4><i class="fa-solid fa-user"></i> About Me</h4>
+            <p id="p-prof-about">Hi! I'm Akshay, a technology enthusiast, who loves exploring new things, traveling the world and creating amazing content.</p>
+          </div>
+
+          <!-- Interactive Profile Sub-Tabs (Posts, Reels, Moments, Highlights) -->
+          <div class="prof-sub-tabs" id="people-sub-tabs">
+            <span class="active" onclick="switchPeopleMediaTab('posts', this)">Posts</span>
+            <span onclick="switchPeopleMediaTab('reels', this)">Reels</span>
+            <span onclick="switchPeopleMediaTab('moments', this)">Moments</span>
+            <span onclick="switchPeopleMediaTab('highlights', this)">Highlights</span>
+          </div>
+
+          <div class="my-moments-header">
+            <h4 id="p-gallery-heading">✨ My Posts &amp; Moments</h4>
+            <span onclick="openCreateContentModal('Post')" style="cursor:pointer;">+ Add New &gt;</span>
+          </div>
+
+          <!-- Clickable Gallery Grid (Opens Fullscreen Lightbox) -->
+          <div class="my-moments-grid" id="people-media-grid">
+            <!-- Dynamically populated via JS -->
           </div>
         </div>
-      `;
-    }
+      </div>
 
-    function togglePostVibe(btn) {
-      const numSpan = btn.querySelector('.v-num');
-      let val = parseInt(numSpan.innerText);
-      numSpan.innerText = val + 1;
-      showToast('✨ Vibe Added!');
-    }
+      <!-- 5B: BUSINESS PROFILE -->
+      <div id="business-profile-box" style="display:none;">
+        <div class="prof-cover-banner" style="background-image:url('https://images.unsplash.com/photo-1441986300917-64674bd600d8?auto=format&fit=crop&w=900&q=80');">
+          <button class="prof-top-icon left" onclick="switchBottomNav('nearby')"><i class="fa-solid fa-arrow-left"></i></button>
+          <div class="prof-top-right-group">
+            <button class="prof-top-icon" onclick="openSettingsScreen()"><i class="fa-solid fa-gear"></i></button>
+          </div>
+        </div>
 
-    // MARKETPLACE & UNREAD ONLY FOR BUSINESS ACCOUNT
-    function updateMessageTabsForAccount() {
-      const tabContainer = document.getElementById('message-tabs-container');
-      if(currentUserType === 'business') {
-        tabContainer.innerHTML = `
-          <span class="m-tab active">Inbox</span>
-          <span class="m-tab">Unread</span>
-          <span class="m-tab">Marketplace</span>
-          <span class="m-tab">Request</span>
-        `;
-      } else {
-        tabContainer.innerHTML = `
-          <span class="m-tab active">Inbox</span>
-          <span class="m-tab">Request</span>
-        `;
-      }
-    }
+        <div class="prof-body-sheet">
+          <div class="prof-avatar-header">
+            <div class="prof-ring-avatar">
+              <img src="https://images.unsplash.com/photo-1576566588028-4147f3842f27?auto=format&fit=crop&w=300&q=80" id="b-prof-logo">
+            </div>
+            <div class="prof-title-col">
+              <h2 id="b-prof-name">Royal Fashion</h2>
+              <div id="b-prof-cat" style="font-size:12px; color:#475569; font-weight:600;">Clothing &amp; Fashion Store</div>
+              <div style="font-size:12px; font-weight:700; margin-top:2px;">
+                ⭐ 4.8 &bull; <span id="b-stat-followers">0</span> Followers &bull; <span id="b-stat-following">0</span> Following
+              </div>
+            </div>
+          </div>
 
-    // SETTINGS (NO ACCOUNT SWITCH, SEPARATE SETTINGS)
-    function openSettingsScreen() {
-      const list = document.getElementById('settings-options-list');
-      if(currentUserType === 'business') {
-        list.innerHTML = `
-          <div style="padding:10px; background:white; border-radius:10px;">🏪 Business Information</div>
-          <div style="padding:10px; background:white; border-radius:10px;">🛍️ Product Catalogue Management</div>
-          <div style="padding:10px; background:white; border-radius:10px;">🔒 Business Privacy & Security</div>
-          <div style="padding:10px; background:white; border-radius:10px;">📊 Post & Profile Analytics</div>
-        `;
-      } else {
-        list.innerHTML = `
-          <div style="padding:10px; background:white; border-radius:10px;">👤 Personal Details & Info</div>
-          <div style="padding:10px; background:white; border-radius:10px;">🔒 Change Password & Security</div>
-          <div style="padding:10px; background:white; border-radius:10px;">🌙 Dark Mode & Preferences</div>
-          <div style="padding:10px; background:white; border-radius:10px;">🛡️ Privacy & Blocked Accounts</div>
-        `;
-      }
-      document.getElementById('settings-modal').style.display = 'flex';
-    }
-    function closeSettingsScreen() { document.getElementById('settings-modal').style.display = 'none'; }
-    function logoutCurrentUser() { location.reload(); }
-    function openCommentsModal() { showToast('💬 Comments opened (Send button active)'); }
-  </script>
+          <div class="prof-btn-row" style="margin-top:12px;">
+            <button class="prof-grad-btn" id="biz-follow-btn" onclick="toggleFollowActiveBiz()">+ Follow</button>
+            <button class="prof-grad-btn" style="background:#2563eb;" onclick="startChatWithActiveBiz()"><i class="fa-solid fa-comment-dots"></i> Message</button>
+          </div>
+
+          <div class="biz-four-circles">
+            <div class="b-cir-item" onclick="callActiveBiz()">
+              <div class="b-cir-icon"><i class="fa-solid fa-phone"></i></div>
+              <span>Call</span>
+            </div>
+            <div class="b-cir-item" onclick="directionsActiveBiz()">
+              <div class="b-cir-icon"><i class="fa-solid fa-diamond-turn-right"></i></div>
+              <span>Directions</span>
+            </div>
+            <div class="b-cir-item" onclick="showToast('🌐 Opening Website...')">
+              <div class="b-cir-icon"><i class="fa-solid fa-globe"></i></div>
+              <span>Website</span>
+            </div>
+            <div class="b-cir-item" onclick="showToast('🔖 Store Saved!')">
+              <div class="b-cir-icon"><i class="fa-solid fa-bookmark"></i></div>
+              <span>Save</span>
+            </div>
+          </div>
+
+          <div class="biz-about-block">
+            <h4>About This Business</h4>
+            <p id="b-prof-about">Trendy fashion for everyone! 👕✨ Premium quality clothes at the best price.</p>
+            <div class="prof-meta-row" style="margin-top:6px;"><i class="fa-solid fa-location-dot"></i> <span id="b-prof-loc">Ardhapur, Maharashtra</span></div>
+            <div class="prof-meta-row"><i class="fa-solid fa-phone"></i> <span id="b-prof-phone">+91 98765 43210</span></div>
+          </div>
+
+          <div class="prof-sub-tabs">
+            <span>Posts</span>
+            <span class="active" onclick="openFullCatalogModal()">Products</span>
+            <span>Reviews</span>
+            <span onclick="directionsActiveBiz()">Location</span>
+          </div>
+
+          <div class="my-moments-header">
+            <h4>🛍️ Products</h4>
+            <span onclick="openFullCatalogModal()" style="cursor:pointer;">See All &gt;</span>
+          </div>
+
+          <div class="biz-mini-products-row" id="biz-mini-products"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FIXED FULL-WIDTH BOTTOM NAVIGATION BAR -->
+    <nav class="bottom-nav-bar">
+      <div class="b-nav-item active" id="bnav-home" onclick="switchBottomNav('home')">
+        <i class="fa-solid fa-house"></i>
+        <span>Home</span>
+      </div>
+      <div class="b-nav-item" id="bnav-explore" onclick="switchBottomNav('explore')">
+        <i class="fa-regular fa-compass"></i>
+        <span>Explore</span>
+      </div>
+      <div class="b-nav-item" id="bnav-nearby" onclick="switchBottomNav('nearby')">
+        <i class="fa-solid fa-location-dot"></i>
+        <span>Nearby</span>
+      </div>
+      <div class="b-nav-item" id="bnav-messages" onclick="switchBottomNav('messages')">
+        <div style="position:relative; display:inline-block;">
+          <i class="fa-regular fa-comment-dots"></i>
+          <span class="msg-badge-count">3</span>
+        </div>
+        <span>Message</span>
+      </div>
+      <div class="b-nav-item" id="bnav-profile" onclick="switchBottomNav('profile')">
+        <i class="fa-regular fa-user"></i>
+        <span>Me</span>
+      </div>
+    </nav>
+
+  </div>
+
+  <!-- =========================================================
+       4. FULLSCREEN IMAGE / GALLERY LIGHTBOX MODAL
+       ========================================================= -->
+  <div id="gallery-lightbox-modal" class="modal-overlay" style="z-index:5000; background:rgba(0,0,0,0.92);" onclick="closeImageLightbox()">
+    <div style="width:100%; max-width:420px; text-align:center; position:relative;" onclick="event.stopPropagation()">
+      <button onclick="closeImageLightbox()" style="position:absolute; top:-42px; right:8px; background:white; border:none; width:34px; height:34px; border-radius:50%; font-weight:900; cursor:pointer;">✕</button>
+      <img id="lightbox-img" src="" style="width:100%; max-height:72vh; object-fit:contain; border-radius:16px;">
+      <p id="lightbox-caption" style="color:white; font-size:14px; font-weight:600; margin-top:12px;"></p>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       5. PRODUCTS CATALOG & PRODUCT DETAILS MODALS
+       ========================================================= -->
+  <div id="catalog-modal" class="modal-overlay" style="padding:0; z-index:2500;">
+    <div class="full-screen-sheet">
+      <div class="sheet-top-bar">
+        <button onclick="closeCatalogModal()"><i class="fa-solid fa-arrow-left"></i></button>
+        <h3>Products</h3>
+        <button><i class="fa-solid fa-magnifying-glass"></i></button>
+      </div>
+      <div class="filter-chips-scroll" style="padding-top:10px;">
+        <span class="f-chip active-blue" onclick="filterCatalogItems('All', this)">All Products</span>
+        <span class="f-chip" onclick="filterCatalogItems('Men', this)">Men</span>
+        <span class="f-chip" onclick="filterCatalogItems('Women', this)">Women</span>
+        <span class="f-chip" onclick="filterCatalogItems('Accessories', this)">Accessories</span>
+      </div>
+      <div class="subpage-search-wrap">
+        <div class="search-input-box">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="catalog-search-q" placeholder="Search products..." onkeyup="searchCatalogItems()">
+        </div>
+      </div>
+      <div class="catalog-2col-grid" id="catalog-grid-box"></div>
+    </div>
+  </div>
+
+  <div id="product-detail-modal" class="modal-overlay" style="padding:0; z-index:2800;">
+    <div class="full-screen-sheet" style="background:white;">
+      <div class="sheet-top-bar">
+        <button onclick="closeProductDetailModal()"><i class="fa-solid fa-arrow-left"></i></button>
+        <h3>Product Details</h3>
+        <button onclick="showToast('🔗 प्रॉडक्ट लिंक शेअर केली!')"><i class="fa-solid fa-share-nodes"></i></button>
+      </div>
+      <div class="p-detail-img-wrap">
+        <img id="pd-main-img" src="" onclick="openImageLightbox(this.src, document.getElementById('pd-title').innerText)">
+        <span class="pd-img-counter">1 / 5</span>
+      </div>
+      <div class="pd-thumbs-bar" id="pd-thumbs-row"></div>
+      <div class="pd-info-body">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <h2 id="pd-title">Royal Hoodie</h2>
+          <span id="pd-price" style="font-size:19px; font-weight:900; color:#2563eb;">₹999</span>
+        </div>
+        <div style="font-size:12.5px; font-weight:700; margin:4px 0 8px;">⭐ 4.8 (8.2K Reviews)</div>
+        <p id="pd-desc" style="font-size:12.5px; color:#334155; line-height:1.5; margin-bottom:12px;"></p>
+        <div class="pd-specs-box">
+          <div><span>🏷️ Category</span><b>: <span id="pd-cat">Men's Fashion</span></b></div>
+          <div><span>🧵 Material</span><b>: <span id="pd-mat">Cotton Blend</span></b></div>
+          <div><span>📏 Sizes</span><b>: <span id="pd-sizes">S, M, L, XL, XXL</span></b></div>
+          <div><span>🎨 Colors</span><b>: <span id="pd-colors">Black, Navy, Grey</span></b></div>
+        </div>
+        <div style="color:#16a34a; font-weight:800; font-size:13px; margin:10px 0;"><i class="fa-solid fa-circle-check"></i> In Stock</div>
+        <button class="pd-primary-btn" onclick="startChatWithActiveBiz()"><i class="fa-solid fa-comment-dots"></i> Message</button>
+        <button class="pd-outline-btn" onclick="callActiveBiz()"><i class="fa-solid fa-phone"></i> Contact Seller</button>
+        <button class="pd-outline-btn" onclick="showToast('🔗 Product Shared!')"><i class="fa-solid fa-share"></i> Share Product</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       6. SETTINGS & PRIVACY MODAL
+       ========================================================= -->
+  <div id="settings-modal" class="modal-overlay" style="padding:0; z-index:3200;">
+    <div class="full-screen-sheet" style="background:#eef2ff;">
+      <div class="sheet-top-bar" style="background:transparent;">
+        <button onclick="closeSettingsScreen()"><i class="fa-solid fa-arrow-left"></i></button>
+        <h3>Settings &amp; Privacy</h3>
+        <button><i class="fa-solid fa-gear" style="color:#4f46e5;"></i></button>
+      </div>
+      <div class="settings-user-banner">
+        <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80" id="set-banner-img">
+        <div style="flex:1;">
+          <h4 id="set-banner-name">Akshay Patil</h4>
+          <p id="set-banner-sub">@akshaypatil</p>
+        </div>
+        <button class="view-prof-pill" onclick="closeSettingsScreen()">View Profile &gt;</button>
+      </div>
+      <div id="settings-grid-content" class="settings-2col-grid"></div>
+      <div style="padding:16px;">
+        <button class="logout-full-btn" onclick="logoutCurrentUser()"><i class="fa-solid fa-right-from-bracket"></i> Log Out</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       7. CREATE CONTENT MODAL
+       ========================================================= -->
+  <div id="create-content-modal" class="modal-overlay" style="z-index:3500;">
+    <div class="create-box-card">
+      <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+        <h3 id="create-modal-title" style="color:#1e1b4b; font-size:17px; font-weight:800;">Create New Post</h3>
+        <button onclick="closeCreateContentModal()" style="border:none; background:#f1f5f9; width:30px; height:30px; border-radius:50%; font-weight:bold;">✕</button>
+      </div>
+      <input type="text" id="cr-title-input" placeholder="Caption / Title लिहा..." class="cr-input">
+      <input type="text" id="cr-sub-input" placeholder="Category किंवा Offer सवलत माहिती..." class="cr-input" style="display:none;">
+      <input type="text" id="cr-price-input" placeholder="Price (उदा. ₹999)" class="cr-input" style="display:none;">
+      <label style="font-size:11.5px; font-weight:700; color:#475569; display:block; margin:6px 0 4px;">फोटो निवडा (Choose Image):</label>
+      <input type="file" accept="image/*" onchange="handleFileSelect(event)" class="cr-input">
+      <button class="pd-primary-btn" style="margin-top:10px;" onclick="publishCreatedContent()">Publish Now 🚀</button>
+    </div>
+  </div>
+
+  <script src="app.js"></script>
 </body>
 </html>
+हे index html आहे
