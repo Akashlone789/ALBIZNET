@@ -286,7 +286,7 @@ async function openGoogleChooser() {
       await db.collection('users').doc(u.uid).set(currentUserData);
     } else currentUserData = { uid: u.uid, ...snap.data() };
     localStorage.setItem(ALBIZNET_SESSION_KEY, JSON.stringify(currentUserData));
-    closeLoginModal();
+    closeGoogleChooser();
     launchMainApp();
   } catch (err) { showToast('❌ Google Error: ' + err.message); }
 }
