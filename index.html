@@ -291,9 +291,11 @@
             <div class="c-menu-item" onclick="openCreateContentModal('Reel')"><i class="fa-solid fa-clapperboard"></i> Reel</div>
             <div class="c-menu-item" onclick="openCreateContentModal('Live')"><i class="fa-solid fa-tower-broadcast"></i> Live</div>
             <div class="c-menu-item" onclick="openCreateContentModal('Note')"><i class="fa-regular fa-comment-dots"></i> Note</div>
-            <div class="c-menu-Item-divider"></div>
-            <div class="c-menu-item" onclick="openCreateContentModal('Offer')" style="color:#4f46e5;"><i class="fa-solid fa-tags"></i> Offer 🏷️</div>
-            <div class="c-menu-item" onclick="openCreateContentModal('Product')" style="color:#7e22ce;"><i class="fa-solid fa-bag-shopping"></i> Product 🛍️</div>
+            <div id="biz-only-create-options">
+              <div class="c-menu-Item-divider"></div>
+              <div class="c-menu-item" onclick="openCreateContentModal('Offer')" style="color:#4f46e5;"><i class="fa-solid fa-tags"></i> Offer 🏷️</div>
+              <div class="c-menu-item" onclick="openCreateContentModal('Product')" style="color:#7e22ce;"><i class="fa-solid fa-bag-shopping"></i> Product 🛍️</div>
+            </div>
           </div>
         </div>
         <div class="header-bell-btn" onclick="showToast('🔔 3 नवीन नोटिफिकेशन्स आहेत!')">
@@ -383,7 +385,7 @@
       <div id="nearby-stores-list" class="nearby-list-wrap"></div>
     </div>
 
-    <!-- TAB 4: MESSAGES VIEW -->
+    <!-- TAB 4: MESSAGES & MARKETPLACE VIEW -->
     <div id="view-messages" class="app-tab-view" style="display:none;">
       <div class="msg-top-header">
         <div class="header-logo-a" style="width:32px; height:32px; font-size:16px;">A</div>
@@ -415,9 +417,9 @@
       <div id="messages-chat-list" class="chat-list-box"></div>
     </div>
 
-    <!-- TAB 5: ME / PROFILE VIEW (PEOPLE & BUSINESS) -->
+    <!-- TAB 5: ME / PROFILE VIEW (ONE SINGLE ACCOUNT - NO SWITCHING) -->
     <div id="view-profile" class="app-tab-view" style="display:none;">
-      <!-- 5A: PEOPLE PROFILE (WITH FOLLOW BUTTON & WORKING TABS) -->
+      <!-- 5A: PEOPLE PROFILE -->
       <div id="people-profile-box">
         <div class="prof-cover-banner" style="background-image:url('https://images.unsplash.com/photo-1506744038136-46273834b3fb?auto=format&fit=crop&w=900&q=80');">
           <button class="prof-top-icon left" onclick="switchBottomNav('home')"><i class="fa-solid fa-arrow-left"></i></button>
@@ -445,7 +447,6 @@
             <div class="p-stat-col"><strong id="p-stat-posts">0</strong><span>Posts</span></div>
           </div>
 
-          <!-- Follow & Message Buttons (Exact match to Image 6) -->
           <div class="prof-btn-row">
             <button class="prof-grad-btn" id="p-follow-btn" onclick="toggleFollowPeopleProfile()">
               <i class="fa-solid fa-user-plus"></i> Follow
@@ -468,7 +469,6 @@
             <p id="p-prof-about">Hi! I'm Akshay, a technology enthusiast, who loves exploring new things, traveling the world and creating amazing content.</p>
           </div>
 
-          <!-- Interactive Profile Sub-Tabs (Posts, Reels, Moments, Highlights) -->
           <div class="prof-sub-tabs" id="people-sub-tabs">
             <span class="active" onclick="switchPeopleMediaTab('posts', this)">Posts</span>
             <span onclick="switchPeopleMediaTab('reels', this)">Reels</span>
@@ -481,10 +481,7 @@
             <span onclick="openCreateContentModal('Post')" style="cursor:pointer;">+ Add New &gt;</span>
           </div>
 
-          <!-- Clickable Gallery Grid (Opens Fullscreen Lightbox) -->
-          <div class="my-moments-grid" id="people-media-grid">
-            <!-- Dynamically populated via JS -->
-          </div>
+          <div class="my-moments-grid" id="people-media-grid"></div>
         </div>
       </div>
 
@@ -589,8 +586,194 @@
   </div>
 
   <!-- =========================================================
-       4. FULLSCREEN IMAGE / GALLERY LIGHTBOX MODAL
+       4. FULLSCREEN POST PHOTO VIEWER (WITH TOP-RIGHT 3-DOT MENU)
        ========================================================= -->
+  <div id="fs-post-viewer-modal" class="fs-post-modal">
+    <div class="fs-top-bar">
+      <button class="fs-top-btn" onclick="closeFsPostViewer()">✕</button>
+      <button class="fs-top-btn" onclick="openFsPhotoThreeDotMenu()"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+    </div>
+    <div class="fs-img-center" ondblclick="triggerFsPostDoubleTapVibe()">
+      <img id="fs-post-img" src="" alt="Post Image">
+      <i class="fa-solid fa-heart vibe-pop-anim" id="fs-vibe-heart"></i>
+    </div>
+    <div class="fs-bottom-info">
+      <div class="fs-user-row">
+        <img id="fs-post-avatar" src="" alt="User">
+        <div>
+          <div id="fs-post-author" style="font-weight:700; font-size:14.5px;"></div>
+          <div id="fs-post-time" style="font-size:11px; color:#cbd5e1;">YESTERDAY AT 4:55 PM &bull; 🌐</div>
+        </div>
+      </div>
+      <div id="fs-post-caption" class="fs-caption-txt"></div>
+      <div class="fs-action-bar">
+        <div style="display:flex; gap:22px;">
+          <button class="fs-act-btn" id="fs-vibe-btn" onclick="toggleFsPostVibe()">
+            <i class="fa-regular fa-heart"></i> <span id="fs-vibe-count">0</span> Vibe
+          </button>
+          <button class="fs-act-btn" onclick="openCommentsModalForActive()">
+            <i class="fa-regular fa-comment"></i> <span id="fs-comment-count">0</span>
+          </button>
+          <button class="fs-act-btn" onclick="shareActivePostExternal()">
+            <i class="fa-solid fa-share"></i> <span id="fs-share-count">0</span>
+          </button>
+        </div>
+        <div style="font-size:13px;">✨💜</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FULLSCREEN PHOTO 3-DOT BOTTOM SHEET (SAVE TO PHONE, SHARE, REPORT) -->
+  <div id="fs-photo-menu-sheet" class="bottom-sheet-overlay" onclick="closeFsPhotoThreeDotMenu()">
+    <div class="bottom-sheet-card" style="background:#ffffff;" onclick="event.stopPropagation()">
+      <div class="bs-drag-handle"></div>
+      <div class="bs-item-row" onclick="saveActivePhotoToPhone()">
+        <i class="fa-solid fa-download"></i>
+        <span>Save to phone</span>
+      </div>
+      <div class="bs-item-row" onclick="shareActivePostExternal()">
+        <i class="fa-solid fa-share"></i>
+        <span>Share external</span>
+      </div>
+      <div class="bs-item-row" onclick="reportActivePostPhoto()">
+        <i class="fa-regular fa-flag"></i>
+        <span>Report photo</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- FEED POST 3-DOT BOTTOM SHEET MENU (INTERESTED, SAVE, REPORT, MORE OPTIONS) -->
+  <div id="feed-post-menu-sheet" class="bottom-sheet-overlay" onclick="closeFeedPostMenu()">
+    <div class="bottom-sheet-card" onclick="event.stopPropagation()">
+      <div class="bs-drag-handle"></div>
+
+      <!-- STEP 1: MAIN POST OPTIONS -->
+      <div id="bs-main-step">
+        <div class="bs-group-box">
+          <div class="bs-item-row" onclick="showToast('👍 Interested! अशा पोस्ट अधिक दिसतील.'); closeFeedPostMenu();">
+            <i class="fa-solid fa-circle-plus"></i>
+            <span>Interested</span>
+          </div>
+          <div class="bs-item-row" onclick="showToast('👎 Not interested! अशा पोस्ट कमी दिसतील.'); closeFeedPostMenu();">
+            <i class="fa-solid fa-circle-minus"></i>
+            <span>Not interested</span>
+          </div>
+        </div>
+
+        <div class="bs-group-box">
+          <div class="bs-item-row" onclick="saveActivePhotoToPhone(); closeFeedPostMenu();">
+            <i class="fa-solid fa-download"></i>
+            <span>Save to phone</span>
+          </div>
+          <div class="bs-item-row" onclick="shareActivePostExternal(); closeFeedPostMenu();">
+            <i class="fa-solid fa-share-nodes"></i>
+            <span>Share</span>
+          </div>
+          <div class="bs-item-row" onclick="showToast('🔖 Post Saved!'); closeFeedPostMenu();">
+            <i class="fa-regular fa-bookmark"></i>
+            <span>Save post</span>
+          </div>
+          <div class="bs-item-row" onclick="reportActivePostPhoto(); closeFeedPostMenu();">
+            <i class="fa-regular fa-flag"></i>
+            <span>Report photo</span>
+          </div>
+        </div>
+
+        <div class="bs-group-box" style="margin-bottom:0;">
+          <div class="bs-item-row" onclick="openFeedPostMoreOptions()" style="justify-content:space-between;">
+            <span>More options</span>
+            <i class="fa-solid fa-chevron-right" style="width:auto; font-size:15px;"></i>
+          </div>
+        </div>
+      </div>
+
+      <!-- STEP 2: MORE OPTIONS SUB-MENU -->
+      <div id="bs-more-step" style="display:none;">
+        <div style="display:flex; align-items:center; gap:12px; margin-bottom:12px; padding:0 4px;">
+          <button onclick="backToMainPostMenu()" style="background:none; border:none; font-size:18px; cursor:pointer;"><i class="fa-solid fa-arrow-left"></i></button>
+          <span style="font-weight:700; font-size:15.5px; flex:1; text-align:center; margin-right:24px;">More options</span>
+        </div>
+        <div class="bs-group-box" style="margin-bottom:0;">
+          <div class="bs-item-row" onclick="showToast('ℹ️ तुम्ही फॉलो केलेल्या आणि लोकेशननुसार ही पोस्ट दिसत आहे.'); closeFeedPostMenu();">
+            <i class="fa-solid fa-circle-info"></i>
+            <span>Why am I seeing this post?</span>
+          </div>
+          <div class="bs-item-row" onclick="showToast('🔔 या पोस्टसाठी नोटिफिकेशन्स चालू केले!'); closeFeedPostMenu();">
+            <i class="fa-regular fa-bell"></i>
+            <span>Turn on notifications for this post</span>
+          </div>
+          <div class="bs-item-row" onclick="copyActivePostLink(); closeFeedPostMenu();">
+            <i class="fa-solid fa-link"></i>
+            <span>Copy link</span>
+          </div>
+          <div class="bs-item-row" onclick="openSettingsScreen(); closeFeedPostMenu();">
+            <i class="fa-solid fa-sliders"></i>
+            <span>Manage your Feed</span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- =========================================================
+       4B. FULLSCREEN REELS / VIDEO PLAYER (DOUBLE TAP VIBE & COMMENTS)
+       ========================================================= -->
+  <div id="reel-fullscreen-modal" class="reel-fs-modal">
+    <div class="fs-top-bar" style="position:absolute; top:0; left:0; right:0;">
+      <div style="display:flex; align-items:center; gap:10px; color:#fff;">
+        <button class="fs-top-btn" onclick="closeReelFullscreen()"><i class="fa-solid fa-arrow-left"></i></button>
+        <strong style="font-size:16px;">Trending Reels</strong>
+      </div>
+      <button class="fs-top-btn" onclick="openFsPhotoThreeDotMenu()"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+    </div>
+
+    <div class="fs-img-center" ondblclick="triggerReelDoubleTapVibe()" style="height:100vh;">
+      <img id="reel-fs-img" src="" style="width:100%; height:100%; object-fit:cover;">
+      <i class="fa-solid fa-bolt vibe-pop-anim" id="reel-vibe-pop"></i>
+
+      <!-- Right Side Floating Action Buttons (Vibe, Comment, Share) -->
+      <div style="position:absolute; right:14px; bottom:90px; display:flex; flex-direction:column; align-items:center; gap:20px; z-index:20;">
+        <div onclick="toggleActiveReelVibe()" style="text-align:center; color:#fff; cursor:pointer;">
+          <i id="reel-vibe-icon" class="fa-regular fa-heart" style="font-size:28px; filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6));"></i>
+          <div id="reel-vibe-count" style="font-size:12px; font-weight:700; margin-top:3px;">0</div>
+          <div style="font-size:10px; font-weight:700;">Vibe</div>
+        </div>
+        <div onclick="openCommentsModalForActive()" style="text-align:center; color:#fff; cursor:pointer;">
+          <i class="fa-regular fa-comment" style="font-size:27px; filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6));"></i>
+          <div id="reel-comment-count" style="font-size:12px; font-weight:700; margin-top:3px;">0</div>
+        </div>
+        <div onclick="shareActivePostExternal()" style="text-align:center; color:#fff; cursor:pointer;">
+          <i class="fa-regular fa-paper-plane" style="font-size:25px; filter:drop-shadow(0 2px 6px rgba(0,0,0,0.6));"></i>
+        </div>
+      </div>
+
+      <!-- Bottom Left User & Caption -->
+      <div style="position:absolute; left:14px; bottom:28px; right:70px; color:#fff; z-index:20; text-shadow:0 1px 4px rgba(0,0,0,0.8);">
+        <div style="display:flex; align-items:center; gap:9px; margin-bottom:6px;">
+          <div style="width:36px; height:36px; border-radius:50%; background:#ea580c; display:flex; align-items:center; justify-content:center; font-weight:800; border:2px solid #fff;" id="reel-fs-initial">A</div>
+          <strong id="reel-fs-author" style="font-size:15px;">Akash Lone</strong>
+        </div>
+        <div id="reel-fs-title" style="font-size:13.5px;"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- COMMENTS LIST & SEND COMMENT MODAL -->
+  <div id="comments-sheet-modal" class="bottom-sheet-overlay" style="z-index:5600;" onclick="closeCommentsModal()">
+    <div class="comments-sheet-card" onclick="event.stopPropagation()">
+      <div class="cs-header">
+        <span>Comments 💬</span>
+        <button onclick="closeCommentsModal()" style="background:none; border:none; font-size:18px; cursor:pointer;">✕</button>
+      </div>
+      <div id="comments-list-box" class="cs-list"></div>
+      <div class="cs-input-bar">
+        <input type="text" id="new-comment-input" placeholder="तुमची कमेंट लिहा (Write a comment)..." onkeydown="if(event.key==='Enter') sendNewComment()">
+        <button class="cs-send-btn" onclick="sendNewComment()"><i class="fa-solid fa-paper-plane"></i> Send</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- GENERAL LIGHTBOX MODAL -->
   <div id="gallery-lightbox-modal" class="modal-overlay" style="z-index:5000; background:rgba(0,0,0,0.92);" onclick="closeImageLightbox()">
     <div style="width:100%; max-width:420px; text-align:center; position:relative;" onclick="event.stopPropagation()">
       <button onclick="closeImageLightbox()" style="position:absolute; top:-42px; right:8px; background:white; border:none; width:34px; height:34px; border-radius:50%; font-weight:900; cursor:pointer;">✕</button>
@@ -659,16 +842,25 @@
   </div>
 
   <!-- =========================================================
-       6. SETTINGS & PRIVACY MODAL
+       6. SINGLE-COLUMN VERTICAL SCROLL SETTINGS & PRIVACY MODAL
        ========================================================= -->
   <div id="settings-modal" class="modal-overlay" style="padding:0; z-index:3200;">
-    <div class="full-screen-sheet" style="background:#eef2ff;">
-      <div class="sheet-top-bar" style="background:transparent;">
-        <button onclick="closeSettingsScreen()"><i class="fa-solid fa-arrow-left"></i></button>
-        <h3>Settings &amp; Privacy</h3>
-        <button><i class="fa-solid fa-gear" style="color:#4f46e5;"></i></button>
+    <div class="settings-scroll-container">
+      <!-- Fixed Top Header & Search Bar -->
+      <div class="settings-fixed-header">
+        <div class="settings-top-row">
+          <button onclick="closeSettingsScreen()"><i class="fa-solid fa-arrow-left"></i></button>
+          <h3>Settings &amp; privacy</h3>
+          <button onclick="document.getElementById('settings-search-input').focus()"><i class="fa-solid fa-magnifying-glass"></i></button>
+        </div>
+        <div class="settings-search-pill">
+          <i class="fa-solid fa-magnifying-glass"></i>
+          <input type="text" id="settings-search-input" placeholder="Search settings" onkeyup="filterSettingsItems()">
+        </div>
       </div>
-      <div class="settings-user-banner">
+
+      <!-- User Banner (No Switch Account Buttons) -->
+      <div class="settings-user-banner" style="margin:12px 16px 4px;">
         <img src="https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80" id="set-banner-img">
         <div style="flex:1;">
           <h4 id="set-banner-name">Akshay Patil</h4>
@@ -676,8 +868,11 @@
         </div>
         <button class="view-prof-pill" onclick="closeSettingsScreen()">View Profile &gt;</button>
       </div>
-      <div id="settings-grid-content" class="settings-2col-grid"></div>
-      <div style="padding:16px;">
+
+      <!-- Dynamically Populated Single-Column List (Personal OR Business) -->
+      <div id="settings-single-col-list" class="settings-single-list"></div>
+
+      <div style="padding:0 16px 32px;">
         <button class="logout-full-btn" onclick="logoutCurrentUser()"><i class="fa-solid fa-right-from-bracket"></i> Log Out</button>
       </div>
     </div>
@@ -704,4 +899,3 @@
   <script src="app.js"></script>
 </body>
 </html>
-हे index html आहे
