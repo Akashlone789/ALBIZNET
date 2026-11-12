@@ -2,6 +2,7 @@
 // ALBIZNET - 100% ERROR-FREE, CLEAN & SUPERFAST ENGINE v8.0 (app.js)
 // Fixed Syntax Error | Fast Reels Loader | Business Marketplace |
 // Auto-Login | Real Interactive Notifications | Universal Search
+// Separate Personal & Business Settings UI (No Account Switching)
 // =========================================================
 
 let auth = null, db = null, storage = null;
@@ -356,6 +357,7 @@ function injectProModalsIntoDOM() {
   w.innerHTML = `
     <input type="file" id="chat-camera-input" accept="image/*,video/*" capture="environment" style="display:none;" onchange="handleChatMediaUpload(event)">
     <input type="file" id="chat-gallery-input" accept="image/*,video/*" style="display:none;" onchange="handleChatMediaUpload(event)">
+    <input type="file" id="settings-avatar-input" accept="image/*" style="display:none;" onchange="handleSettingsAvatarUpload(event)">
 
     <div id="pro-upload-progress-Banner" style="display:none; position:fixed; top:12px; left:14px; right:14px; background:#0f172a; color:#fff; padding:12px 16px; border-radius:16px; z-index:9500; box-shadow:0 8px 25px rgba(0,0,0,0.35); font-family:'Poppins',sans-serif; align-items:center; gap:12px;">
       <i class="fa-solid fa-cloud-arrow-up fa-bounce" style="color:#38bdf8; font-size:20px;"></i>
@@ -734,7 +736,6 @@ function getCacheArrayByCol(col) {
   if (col === 'products') return cacheProducts;
   return cachePosts;
 }
-
 // =========================================================
 // FULLSCREEN REELS & MEDIA PLAYER
 // =========================================================
@@ -1507,7 +1508,7 @@ function renderNearbyStores() {
 }
 
 // =========================================================
-// 7. PROFILE, CATALOG & SETTINGS
+// 7. PROFILE, CATALOG & SEPARATE SETTINGS UI (NO ACCOUNT SWITCH)
 // =========================================================
 async function openUserProfile(uid) {
   if (!uid) return;
@@ -1531,7 +1532,7 @@ function renderProfileData(u) {
     btn.onclick = () => isMe ? openSettingsScreen() : openOtherUserProfileMenu();
   });
 
-  if (u.type === 'business') {
+  if (isUserBusinessAccount(u)) {
     document.getElementById('people-profile-box').style.display = 'none';
     document.getElementById('business-profile-box').style.display = 'block';
     document.getElementById('b-prof-name').innerText = u.name;
@@ -1561,7 +1562,11 @@ function renderProfileMediaGrid() {
   let grid = document.getElementById('people-media-grid'); if (!grid) return;
   let uid = (activeProfileUser && activeProfileUser.uid) || (currentUserData && currentUserData.uid) || '';
   let isMe = currentUserData && uid === currentUserData.uid, ctx = isMe ? 'profile_owner' : 'public_reel';
-  let items = activePeopleTab === 'reels' ? cacheReels.filter(r => r.uid === uid && !r.archived) : cachePosts.filter(p => p.uid === uid && !p.archived);
+  let items = activePeopleTab === 'reels'
+    ? cacheReels.filter(r => r.uid === uid && !r.archived)
+    : (activePeopleTab === 'archived'
+      ? [...cachePosts.filter(p => p.uid === uid && p.archived), ...cacheReels.filter(r => r.uid === uid && r.archived)]
+      : cachePosts.filter(p => p.uid === uid && !p.archived));
   window.currentProfileGridList = items;
   grid.innerHTML = items.length === 0 ? `<div style="grid-column:1/-1; text-align:center; padding:24px; color:#64748b;">माहिती नाही.</div>` : items.map(item => `
     <div onclick="openScrollableMediaFeed('${item._col || 'posts'}', '${item.id}', 'Profile', window.currentProfileGridList, '${ctx}')" style="position:relative; aspect-ratio:1/1; border-radius:12px; overflow:hidden; background:#0f172a; cursor:pointer;">
@@ -1575,7 +1580,11 @@ function switchBizMediaTab(t, el) { activeBizTab = t; document.querySelectorAll(
 function renderBizMediaSection() {
   let box = document.getElementById('biz-mini-products'); if (!box) return;
   let uid = (activeProfileUser && activeProfileUser.uid) || (currentUserData && currentUserData.uid) || '';
-  let items = activeBizTab === 'Posts' ? cachePosts.filter(p => p.uid === uid) : (activeBizTab === 'Reels' ? cacheReels.filter(r => r.uid === uid) : cacheProducts.filter(p => p.uid === uid));
+  let items = activeBizTab === 'Posts' ? cachePosts.filter(p => p.uid === uid && !p.archived)
+    : (activeBizTab === 'Reels' ? cacheReels.filter(r => r.uid === uid && !r.archived)
+    : (activeBizTab === 'Moments' ? cacheStories.filter(s => s.uid === uid && !s.archived)
+    : (activeBizTab === 'Archived' ? [...cachePosts.filter(p => p.uid === uid && p.archived), ...cacheProducts.filter(p => p.uid === uid && p.archived)]
+    : cacheProducts.filter(p => p.uid === uid && !p.archived))));
   box.innerHTML = items.length === 0 ? `<div style="padding:16px; color:#64748b;">माहिती नाही.</div>` : items.map(i => `
     <div onclick="openScrollableMediaFeed('${i._col || 'products'}', '${i.id}', 'Business', null, 'public_reel')" style="min-width:130px; background:#f8fafc; padding:8px; border-radius:12px; margin-right:10px; text-align:center;">
       <img src="${i.img}" style="width:100%; height:95px; object-fit:cover; border-radius:8px;">
@@ -1625,38 +1634,363 @@ function closeProductDetailModal() { document.getElementById('product-detail-mod
 
 async function editUserField(k, label) {
   if (!currentUserData) return;
-  let v = prompt(`नवीन ${label} टाका:`, currentUserData[k] || ''); if (!v) return;
+  let v = prompt(`नवीन ${label} टाका:`, currentUserData[k] || '');
+  if (v === null || !v.trim()) return;
+  v = v.trim();
   await db.collection('users').doc(currentUserData.uid).update({ [k]: v });
-  currentUserData[k] = v; localStorage.setItem(ALBIZNET_SESSION_KEY, JSON.stringify(currentUserData));
-  openUserProfile(currentUserData.uid);
-}
-
-async function switchUserRoleTo(newType) {
-  if (!currentUserData) return;
-  let cat = newType === 'business' ? (prompt('व्यवसायाची कॅटेगरी (Shops, Services, Restaurants):', 'Shops') || 'Shops') : 'Personal Account';
-  await db.collection('users').doc(currentUserData.uid).update({ type: newType, category: cat });
-  currentUserData.type = newType; currentUserData.category = cat;
+  currentUserData[k] = v;
   localStorage.setItem(ALBIZNET_SESSION_KEY, JSON.stringify(currentUserData));
-  syncMarketplaceTabVisibility(); closeSettingsScreen(); openUserProfile(currentUserData.uid);
-  showToast(`🔄 अकाउंट ${newType.toUpperCase()} मध्ये बदलले!`);
+  showToast(`✅ ${label} अपडेट झाले!`);
+  if (document.getElementById('settings-modal')?.style.display === 'flex') openSettingsScreen();
+  renderProfileData(currentUserData);
 }
 
-function openSettingsScreen() {
+function handleSettingsAvatarUpload(e) {
+  if (!e.target.files || !e.target.files[0] || !currentUserData) return;
+  const f = e.target.files[0], r = new FileReader();
+  r.onload = (ev) => {
+    const img = new Image();
+    img.onload = async () => {
+      const c = document.createElement('canvas');
+      c.width = 320; c.height = 320;
+      c.getContext('2d').drawImage(img, 0, 0, 320, 320);
+      const dataUrl = c.toDataURL('image/jpeg', 0.82);
+      await db.collection('users').doc(currentUserData.uid).update({ avatar: dataUrl });
+      currentUserData.avatar = dataUrl;
+      localStorage.setItem(ALBIZNET_SESSION_KEY, JSON.stringify(currentUserData));
+      showToast('📸 प्रोफाईल फोटो अपडेट झाला!');
+      openSettingsScreen();
+      renderProfileData(currentUserData);
+    };
+    img.src = ev.target.result;
+  };
+  r.readAsDataURL(f);
+}
+
+async function toggleSettingSwitch(key, label) {
   if (!currentUserData) return;
-  document.getElementById('set-banner-name').innerText = currentUserData.name;
-  document.getElementById('settings-grid-content').innerHTML = `
-    <div style="background:#fff; padding:14px; border-radius:14px; margin-bottom:12px;">
-      <div onclick="editUserField('name', 'नाव')" style="padding:8px 0; border-bottom:1px solid #f1f5f9;">✏️ नाव बदला</div>
-      <div onclick="editUserField('about', 'माहिती')" style="padding:8px 0; border-bottom:1px solid #f1f5f9;">📝 बायो बदला</div>
-      <div onclick="editUserField('location', 'लोकेशन')" style="padding:8px 0;">📍 लोकेशन बदला</div>
-    </div>
-    <div style="background:#fff; padding:14px; border-radius:14px;">
-      <div onclick="switchUserRoleTo('business')" style="padding:8px 0; border-bottom:1px solid #f1f5f9;">🏪 Switch to Business Store</div>
-      <div onclick="switchUserRoleTo('people')" style="padding:8px 0;">👤 Switch to Personal Account</div>
+  const nextVal = !Boolean(currentUserData[key]);
+  currentUserData[key] = nextVal;
+  localStorage.setItem(ALBIZNET_SESSION_KEY, JSON.stringify(currentUserData));
+  await db.collection('users').doc(currentUserData.uid).update({ [key]: nextVal }).catch(() => {});
+  openSettingsScreen();
+  showToast(`⚙️ ${label}: ${nextVal ? 'ON' : 'OFF'}`);
+}
+
+async function handleSettingsOptionClick(title, fieldKey) {
+  if (!currentUserData) return;
+  if (fieldKey) return editUserField(fieldKey, title);
+
+  if (title === 'Change Password') {
+    const p = prompt('🔐 नवीन ६ अंकी पासवर्ड टाका:');
+    if (p && p.length >= 6 && auth?.currentUser) {
+      try { await auth.currentUser.updatePassword(p); showToast('✅ पासवर्ड बदलला!'); }
+      catch (e) { showToast('⚠️ सुरक्षिततेसाठी पुन्हा लॉगिन करून पासवर्ड बदला.'); }
+    }
+    return;
+  }
+  if (title === 'Product Catalogue') { closeSettingsScreen(); openFullCatalogModal(); return; }
+  if (title === 'Message Requests') { closeSettingsScreen(); switchBottomNav('messages'); switchMsgTab('Request'); return; }
+  if (title.includes('Deactivate')) {
+    if (confirm('⏸️ तुम्हाला तुमचे अकाउंट तात्पुरते Deactivate करायचे आहे का?')) {
+      showToast('⏸️ अकाउंट Deactivate केले गेले.');
+      logoutCurrentUser();
+    }
+    return;
+  }
+  if (title.includes('Delete')) {
+    if (confirm('🚨 सावधान! तुमचे अकाउंट कायमचे Delete करायचे आहे का?')) {
+      await db.collection('users').doc(currentUserData.uid).delete().catch(() => {});
+      logoutCurrentUser();
+    }
+    return;
+  }
+  const curVal = currentUserData['setting_' + title] || '';
+  const v = prompt(`⚙️ ${title} सेटिंग अपडेट करा:`, curVal || 'Default');
+  if (v !== null) {
+    currentUserData['setting_' + title] = v;
+    localStorage.setItem(ALBIZNET_SESSION_KEY, JSON.stringify(currentUserData));
+    await db.collection('users').doc(currentUserData.uid).update({ ['setting_' + title]: v }).catch(() => {});
+    showToast(`✅ ${title} सेव्ह केले!`);
+  }
+}
+
+function buildSettingRowHTML(icon, label, actionJS, subText = '') {
+  return `
+    <div onclick="${actionJS}" style="display:flex; align-items:center; justify-content:space-between; padding:9px 4px; border-bottom:1px solid #f3e8ff; cursor:pointer;">
+      <div style="display:flex; align-items:center; gap:10px; min-width:0;">
+        <div style="width:26px; height:26px; border-radius:8px; background:#ede9fe; color:#5b21b6; display:flex; align-items:center; justify-content:center; font-size:12.5px; flex-shrink:0;">
+          <i class="${icon}"></i>
+        </div>
+        <div style="min-width:0;">
+          <div style="font-size:12.5px; font-weight:600; color:#1e1b4b; line-height:1.25;">${label}</div>
+          ${subText ? `<div style="font-size:10px; color:#7c3aed; margin-top:1px;">${subText}</div>` : ''}
+        </div>
+      </div>
+      <i class="fa-solid fa-chevron-right" style="font-size:11px; color:#7c3aed; margin-left:6px; flex-shrink:0;"></i>
     </div>
   `;
-  document.getElementById('settings-modal').style.display = 'flex';
 }
+
+function buildSettingToggleRowHTML(icon, label, key, defaultOn = true) {
+  const isOn = currentUserData && currentUserData[key] !== undefined ? Boolean(currentUserData[key]) : defaultOn;
+  return `
+    <div onclick="toggleSettingSwitch('${key}', '${label}')" style="display:flex; align-items:center; justify-content:space-between; padding:9px 4px; border-bottom:1px solid #f3e8ff; cursor:pointer;">
+      <div style="display:flex; align-items:center; gap:10px;">
+        <div style="width:26px; height:26px; border-radius:8px; background:#ede9fe; color:#5b21b6; display:flex; align-items:center; justify-content:center; font-size:12.5px; flex-shrink:0;">
+          <i class="${icon}"></i>
+        </div>
+        <div style="font-size:12.5px; font-weight:600; color:#1e1b4b;">${label}</div>
+      </div>
+      <div style="width:40px; height:22px; border-radius:20px; background:${isOn ? 'linear-gradient(90deg,#6d28d9,#4f46e5)' : '#cbd5e1'}; position:relative; transition:0.25s; flex-shrink:0;">
+        <div style="width:18px; height:18px; border-radius:50%; background:#fff; position:absolute; top:2px; ${isOn ? 'right:2px;' : 'left:2px;'} box-shadow:0 1px 4px rgba(0,0,0,0.25);"></div>
+      </div>
+    </div>
+  `;
+}
+
+function buildSettingCardHTML(headIcon, headTitle, rowsHTML, infoNote = '') {
+  return `
+    <div style="background:rgba(255,255,255,0.95); border-radius:20px; padding:13px 14px; margin-bottom:12px; box-shadow:0 6px 20px rgba(91,33,182,0.07); border:1px solid #ede9fe; break-inside:avoid;">
+      <div style="display:flex; align-items:center; gap:9px; padding-bottom:8px; margin-bottom:4px; border-bottom:1.5px solid #ede9fe;">
+        <div style="width:30px; height:30px; border-radius:10px; background:linear-gradient(135deg,#6d28d9,#4f46e5); color:#fff; display:flex; align-items:center; justify-content:center; font-size:14px;">
+          <i class="${headIcon}"></i>
+        </div>
+        <h4 style="margin:0; font-size:14px; font-weight:800; color:#1e1b4b;">${headTitle}</h4>
+      </div>
+      <div>${rowsHTML}</div>
+      ${infoNote ? `
+        <div style="margin-top:9px; background:#ede9fe; border-radius:12px; padding:8px 10px; display:flex; gap:8px; align-items:flex-start; font-size:10.5px; color:#4c1d95; line-height:1.35;">
+          <i class="fa-solid fa-circle-info" style="color:#4f46e5; margin-top:2px;"></i>
+          <span>${infoNote}</span>
+        </div>
+      ` : ''}
+    </div>
+  `;
+}
+
+// =========================================================
+// EXACT SCREENSHOT SETTINGS UI (PERSONAL vs BUSINESS - NO SWITCH)
+// =========================================================
+function openSettingsScreen() {
+  if (!currentUserData) return;
+  const u = currentUserData;
+  const isBiz = isUserBusinessAccount(u);
+
+  const setBanner = document.getElementById('set-banner-name');
+  if (setBanner) setBanner.innerText = u.name;
+
+  const modal = document.getElementById('settings-modal');
+  const grid = document.getElementById('settings-grid-content');
+  if (!modal || !grid) return;
+
+  // Hide default header if custom lavender header is rendered inside grid
+  const defaultHeader = modal.querySelector('.settings-top-header, .modal-header');
+  if (defaultHeader) defaultHeader.style.display = 'none';
+
+  const avatarUrl = u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'U')}&background=4f46e5&color=fff&bold=true`;
+  const subLabel = isBiz ? (u.category || 'Clothing & Fashion Store') : (u.handle || '@' + (u.name || 'user').toLowerCase().replace(/\s+/g, ''));
+
+  let cardsMarkup = '';
+
+  if (!isBiz) {
+    // 1. PERSONAL / PEOPLE ACCOUNT SETTINGS (Matches Screenshot 1, Account Type / Switch removed)
+    const yourAccountCard = buildSettingCardHTML('fa-solid fa-user', 'Your Account', [
+      buildSettingRowHTML('fa-solid fa-user', 'Account Information', `handleSettingsOptionClick('Account Information', 'name')`),
+      buildSettingRowHTML('fa-solid fa-id-card', 'Personal Details', `handleSettingsOptionClick('Personal Details', 'about')`),
+      buildSettingRowHTML('fa-solid fa-lock', 'Change Password', `handleSettingsOptionClick('Change Password')`),
+      buildSettingRowHTML('fa-solid fa-shield-halved', 'Login & Security', `handleSettingsOptionClick('Login & Security')`),
+      buildSettingRowHTML('fa-solid fa-circle-pause', 'Deactivate Account', `handleSettingsOptionClick('Deactivate Account')`),
+      buildSettingRowHTML('fa-solid fa-trash-can', 'Delete Account', `handleSettingsOptionClick('Delete Account')`)
+    ].join(''));
+
+    const privacySecurityCard = buildSettingCardHTML('fa-solid fa-lock', 'Privacy & Security', [
+      buildSettingToggleRowHTML('fa-solid fa-user-shield', 'Private Account', 'privateAccount', true),
+      buildSettingRowHTML('fa-solid fa-user-plus', 'Who Can Follow Me', `handleSettingsOptionClick('Who Can Follow Me')`),
+      buildSettingRowHTML('fa-solid fa-comment-dots', 'Who Can Message Me', `handleSettingsOptionClick('Who Can Message Me')`),
+      buildSettingRowHTML('fa-solid fa-comments', 'Who Can Comment on My Posts', `handleSettingsOptionClick('Who Can Comment on My Posts')`),
+      buildSettingRowHTML('fa-solid fa-eye', 'Who Can See My Posts', `handleSettingsOptionClick('Who Can See My Posts')`),
+      buildSettingRowHTML('fa-solid fa-ban', 'Blocked Accounts', `handleSettingsOptionClick('Blocked Accounts')`),
+      buildSettingRowHTML('fa-solid fa-tag', 'Profile & Tagging', `handleSettingsOptionClick('Profile & Tagging')`),
+      buildSettingToggleRowHTML('fa-solid fa-user-check', 'Active Status', 'activeStatus', true),
+      buildSettingRowHTML('fa-solid fa-location-dot', 'Location Privacy', `handleSettingsOptionClick('Location Privacy', 'location')`)
+    ].join(''), 'Your personal location will not be public by default.');
+
+    const preferencesCard = buildSettingCardHTML('fa-solid fa-bell', 'Preferences', [
+      buildSettingRowHTML('fa-solid fa-bell', 'Notifications', `closeSettingsScreen(); document.getElementById('pro-notifications-modal').style.display='flex'; renderProNotificationsList();`),
+      buildSettingRowHTML('fa-solid fa-globe', 'Language', `handleSettingsOptionClick('Language')`),
+      buildSettingToggleRowHTML('fa-solid fa-moon', 'Dark Mode', 'darkMode', true),
+      buildSettingRowHTML('fa-solid fa-sliders', 'Content Preferences', `handleSettingsOptionClick('Content Preferences')`),
+      buildSettingRowHTML('fa-solid fa-universal-access', 'Accessibility', `handleSettingsOptionClick('Accessibility')`),
+      buildSettingRowHTML('fa-solid fa-palette', 'App Appearance', `handleSettingsOptionClick('App Appearance')`)
+    ].join(''));
+
+    const yourContentCard = buildSettingCardHTML('fa-solid fa-camera', 'Your Content', [
+      buildSettingRowHTML('fa-solid fa-image', 'Posts Settings', `handleSettingsOptionClick('Posts Settings')`),
+      buildSettingRowHTML('fa-solid fa-star', 'Moments Settings', `handleSettingsOptionClick('Moments Settings')`),
+      buildSettingRowHTML('fa-solid fa-clapperboard', 'Reels Settings', `handleSettingsOptionClick('Reels Settings')`),
+      buildSettingRowHTML('fa-solid fa-bookmark', 'Saved Posts', `handleSettingsOptionClick('Saved Posts')`),
+      buildSettingRowHTML('fa-solid fa-clock-rotate-left', 'Activity Log', `handleSettingsOptionClick('Activity Log')`),
+      buildSettingRowHTML('fa-solid fa-users', 'Post Audience', `handleSettingsOptionClick('Post Audience')`, 'Public, Followers or Private')
+    ].join(''));
+
+    const helpSupportCard = buildSettingCardHTML('fa-solid fa-headset', 'Help & Support', [
+      buildSettingRowHTML('fa-regular fa-circle-question', 'Help Center', `handleSettingsOptionClick('Help Center')`),
+      buildSettingRowHTML('fa-solid fa-triangle-exclamation', 'Report a Problem', `handleSettingsOptionClick('Report a Problem')`),
+      buildSettingRowHTML('fa-solid fa-people-group', 'Community Guidelines', `handleSettingsOptionClick('Community Guidelines')`),
+      buildSettingRowHTML('fa-solid fa-file-contract', 'Terms of Service', `handleSettingsOptionClick('Terms of Service')`),
+      buildSettingRowHTML('fa-solid fa-user-lock', 'Privacy Policy', `handleSettingsOptionClick('Privacy Policy')`),
+      buildSettingRowHTML('fa-solid fa-circle-info', 'About ALBIZNET', `handleSettingsOptionClick('About ALBIZNET')`)
+    ].join(''));
+
+    cardsMarkup = `
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px; align-items:start;">
+        <div>${yourAccountCard}${privacySecurityCard}</div>
+        <div>${preferencesCard}${yourContentCard}${helpSupportCard}</div>
+      </div>
+    `;
+  } else {
+    // 2. BUSINESS ACCOUNT SETTINGS (Matches Screenshot 2, No Switch to Personal Account)
+    const bizInfoCard = buildSettingCardHTML('fa-solid fa-store', 'Business Information', [
+      buildSettingRowHTML('fa-solid fa-briefcase', 'Business Name', `handleSettingsOptionClick('Business Name', 'name')`),
+      buildSettingRowHTML('fa-solid fa-camera-retro', 'Business Profile Picture', `document.getElementById('settings-avatar-input').click()`),
+      buildSettingRowHTML('fa-solid fa-panorama', 'Cover Photo', `handleSettingsOptionClick('Cover Photo')`),
+      buildSettingRowHTML('fa-solid fa-layer-group', 'Business Category', `handleSettingsOptionClick('Business Category', 'category')`),
+      buildSettingRowHTML('fa-solid fa-circle-info', 'About Business', `handleSettingsOptionClick('About Business', 'about')`),
+      buildSettingRowHTML('fa-solid fa-address-book', 'Contact Information', `handleSettingsOptionClick('Contact Information', 'phone')`),
+      buildSettingRowHTML('fa-solid fa-location-dot', 'Business Location', `handleSettingsOptionClick('Business Location', 'location')`),
+      buildSettingRowHTML('fa-regular fa-clock', 'Opening Hours', `handleSettingsOptionClick('Opening Hours', 'openingHours')`),
+      buildSettingRowHTML('fa-solid fa-globe', 'Website', `handleSettingsOptionClick('Website', 'website')`)
+    ].join(''));
+
+    const postsContentCard = buildSettingCardHTML('fa-solid fa-pen-to-square', 'Posts & Content', [
+      buildSettingRowHTML('fa-solid fa-users', 'Post Audience', `handleSettingsOptionClick('Post Audience')`),
+      buildSettingRowHTML('fa-regular fa-comment-dots', 'Comments Settings', `handleSettingsOptionClick('Comments Settings')`),
+      buildSettingRowHTML('fa-solid fa-at', 'Mentions & Tags', `handleSettingsOptionClick('Mentions & Tags')`),
+      buildSettingRowHTML('fa-solid fa-clapperboard', 'Reels Settings', `handleSettingsOptionClick('Reels Settings')`),
+      buildSettingRowHTML('fa-solid fa-star', 'Moments Settings', `handleSettingsOptionClick('Moments Settings')`),
+      buildSettingRowHTML('fa-solid fa-bag-shopping', 'Product Catalogue', `handleSettingsOptionClick('Product Catalogue')`),
+      buildSettingRowHTML('fa-solid fa-bookmark', 'Saved Posts', `handleSettingsOptionClick('Saved Posts')`),
+      buildSettingRowHTML('fa-solid fa-folder-open', 'Content Management', `handleSettingsOptionClick('Content Management')`)
+    ].join(''));
+
+    const bizNotificationsCard = buildSettingCardHTML('fa-solid fa-bell', 'Notifications', [
+      buildSettingRowHTML('fa-solid fa-user-plus', 'New Followers', `handleSettingsOptionClick('New Followers')`),
+      buildSettingRowHTML('fa-solid fa-comment-dots', 'New Messages', `handleSettingsOptionClick('New Messages')`),
+      buildSettingRowHTML('fa-solid fa-comments', 'Post Comments', `handleSettingsOptionClick('Post Comments')`),
+      buildSettingRowHTML('fa-solid fa-heart', 'Likes & Shares', `handleSettingsOptionClick('Likes & Shares')`),
+      buildSettingRowHTML('fa-solid fa-shield-halved', 'Account Security Alerts', `handleSettingsOptionClick('Account Security Alerts')`)
+    ].join(''));
+
+    const helpBannerCard = `
+      <div onclick="handleSettingsOptionClick('Help & Support')" style="background:rgba(255,255,255,0.95); border-radius:20px; padding:13px 14px; margin-bottom:12px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 6px 20px rgba(91,33,182,0.07); border:1px solid #ede9fe; cursor:pointer;">
+        <div style="display:flex; align-items:center; gap:10px;">
+          <div style="width:32px; height:32px; border-radius:10px; background:linear-gradient(135deg,#6d28d9,#4f46e5); color:#fff; display:flex; align-items:center; justify-content:center;"><i class="fa-solid fa-headset"></i></div>
+          <div>
+            <div style="font-size:13.5px; font-weight:800; color:#1e1b4b;">Help & Support</div>
+            <div style="font-size:10.5px; color:#64748b;">Get help, report a problem, or learn more.</div>
+          </div>
+        </div>
+        <i class="fa-solid fa-chevron-right" style="font-size:12px; color:#7c3aed;"></i>
+      </div>
+    `;
+
+    const bizPrivacyCard = buildSettingCardHTML('fa-solid fa-lock', 'Business Privacy', [
+      buildSettingRowHTML('fa-solid fa-user-plus', 'Who Can Follow My Business', `handleSettingsOptionClick('Who Can Follow My Business')`),
+      buildSettingRowHTML('fa-solid fa-comment-dots', 'Who Can Message My Business', `handleSettingsOptionClick('Who Can Message My Business')`),
+      buildSettingRowHTML('fa-solid fa-comments', 'Who Can Comment on Business Posts', `handleSettingsOptionClick('Who Can Comment on Business Posts')`),
+      buildSettingRowHTML('fa-solid fa-globe', 'Public Posts Settings', `handleSettingsOptionClick('Public Posts Settings')`),
+      buildSettingRowHTML('fa-solid fa-ban', 'Blocked Accounts', `handleSettingsOptionClick('Blocked Accounts')`),
+      buildSettingRowHTML('fa-solid fa-location-dot', 'Business Location Visibility', `handleSettingsOptionClick('Business Location Visibility')`),
+      buildSettingRowHTML('fa-solid fa-phone-volume', 'Business Contact Visibility', `handleSettingsOptionClick('Business Contact Visibility')`)
+    ].join(''), 'Business Location can be public; however, you can choose whether to show your phone number, email and other contact details.');
+
+    const followersMessagesCard = buildSettingCardHTML('fa-solid fa-user-group', 'Followers & Messages', [
+      buildSettingRowHTML('fa-solid fa-users', 'Followers List', `handleSettingsOptionClick('Followers List')`),
+      buildSettingRowHTML('fa-solid fa-user-check', 'Following List', `handleSettingsOptionClick('Following List')`),
+      buildSettingRowHTML('fa-solid fa-envelope-open-text', 'Message Requests', `handleSettingsOptionClick('Message Requests')`),
+      buildSettingRowHTML('fa-solid fa-ban', 'Blocked Accounts', `handleSettingsOptionClick('Blocked Accounts')`),
+      buildSettingRowHTML('fa-solid fa-bell', 'Notification Preferences', `handleSettingsOptionClick('Notification Preferences')`)
+    ].join(''));
+
+    const bizToolsCard = buildSettingCardHTML('fa-solid fa-chart-Simple', 'Business Tools', [
+      buildSettingRowHTML('fa-solid fa-chart-column', 'Post Views Analytics', `handleSettingsOptionClick('Post Views Analytics')`),
+      buildSettingRowHTML('fa-solid fa-eye', 'Profile Views', `handleSettingsOptionClick('Profile Views')`),
+      buildSettingRowHTML('fa-solid fa-arrow-trend-up', 'Follower Growth', `handleSettingsOptionClick('Follower Growth')`),
+      buildSettingRowHTML('fa-solid fa-bolt', 'Engagement Analytics', `handleSettingsOptionClick('Engagement Analytics')`),
+      buildSettingRowHTML('fa-solid fa-bullseye', 'Content Performance', `handleSettingsOptionClick('Content Performance')`)
+    ].join(''));
+
+    const bizSecurityCard = buildSettingCardHTML('fa-solid fa-shield-check', 'Business Security', [
+      buildSettingRowHTML('fa-solid fa-key', 'Change Password', `handleSettingsOptionClick('Change Password')`),
+      buildSettingRowHTML('fa-solid fa-shield-halved', 'Login & Security', `handleSettingsOptionClick('Login & Security')`),
+      buildSettingRowHTML('fa-solid fa-laptop-mobile', 'Active Sessions', `handleSettingsOptionClick('Active Sessions')`),
+      buildSettingRowHTML('fa-solid fa-rotate-left', 'Account Recovery', `handleSettingsOptionClick('Account Recovery')`),
+      buildSettingRowHTML('fa-solid fa-circle-pause', 'Deactivate Business Account', `handleSettingsOptionClick('Deactivate Business Account')`),
+      buildSettingRowHTML('fa-solid fa-trash-can', 'Delete Business Account', `handleSettingsOptionClick('Delete Business Account')`)
+    ].join(''));
+
+    cardsMarkup = `
+      <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(260px, 1fr)); gap:12px; align-items:start;">
+        <div>${bizInfoCard}${postsContentCard}${bizNotificationsCard}${helpBannerCard}</div>
+        <div>${bizPrivacyCard}${followersMessagesCard}${bizToolsCard}${bizSecurityCard}</div>
+      </div>
+    `;
+  }
+
+  grid.innerHTML = `
+    <div style="background:linear-gradient(160deg, #ede9fe 0%, #f5f3ff 55%, #e0e7ff 100%); min-height:100%; padding:14px; border-radius:20px; font-family:'Poppins',sans-serif;">
+      <!-- Top Bar -->
+      <div style="display:flex; align-items:center; justify-content:space-between; padding:4px 4px 14px;">
+        <button onclick="closeSettingsScreen()" style="background:rgba(255,255,255,0.85); border:none; width:36px; height:36px; border-radius:50%; font-size:17px; color:#1e1b4b; cursor:pointer; box-shadow:0 2px 8px rgba(0,0,0,0.06);">
+          <i class="fa-solid fa-arrow-left"></i>
+        </button>
+        <h3 style="margin:0; font-size:18px; font-weight:800; color:#0f172a;">Settings & Privacy</h3>
+        <div style="width:36px; height:36px; border-radius:50%; background:rgba(255,255,255,0.85); display:flex; align-items:center; justify-content:center; color:#5b21b6; font-size:17px;">
+          <i class="fa-solid fa-gear"></i>
+        </div>
+      </div>
+
+      <!-- Profile Header Banner -->
+      <div style="background:rgba(255,255,255,0.92); border-radius:22px; padding:14px 16px; margin-bottom:14px; display:flex; align-items:center; justify-content:space-between; box-shadow:0 8px 24px rgba(91,33,182,0.08); border:1px solid #ede9fe;">
+        <div style="display:flex; align-items:center; gap:13px; min-width:0;">
+          <div style="position:relative; flex-shrink:0;" onclick="document.getElementById('settings-avatar-input').click()">
+            <img src="${avatarUrl}" style="width:64px; height:64px; border-radius:50%; object-fit:cover; border:3px solid #7c3aed; cursor:pointer;">
+            <span style="position:absolute; bottom:0; right:0; width:22px; height:22px; border-radius:50%; background:#5b21b6; color:#fff; display:flex; align-items:center; justify-content:center; font-size:10px; border:2px solid #fff;">
+              <i class="fa-solid fa-camera"></i>
+            </span>
+          </div>
+          <div style="min-width:0;">
+            <div style="font-size:17px; font-weight:800; color:#0f172a; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${u.name || 'User'}</div>
+            <div style="font-size:12.5px; color:#64748b; font-weight:500;">${subLabel}</div>
+          </div>
+        </div>
+        ${isBiz ? `
+          <button onclick="closeSettingsScreen(); openUserProfile('${u.uid}')" style="background:#ede9fe; color:#4c1d95; border:1px solid #c4b5fd; padding:7px 13px; border-radius:20px; font-size:12px; font-weight:700; cursor:pointer; flex-shrink:0;">
+            View Profile <i class="fa-solid fa-chevron-right" style="font-size:10px;"></i>
+          </button>
+        ` : `
+          <button onclick="closeSettingsScreen(); openUserProfile('${u.uid}')" style="background:#f5f3ff; color:#5b21b6; border:none; width:34px; height:34px; border-radius:50%; cursor:pointer;">
+            <i class="fa-solid fa-chevron-right"></i>
+          </button>
+        `}
+      </div>
+
+      <!-- Settings Cards Grid -->
+      ${cardsMarkup}
+
+      <!-- Log Out Button -->
+      <div style="margin-top:8px; text-align:center;">
+        <button onclick="logoutCurrentUser()" style="width:100%; background:#fee2e2; color:#dc2626; border:1px solid #fecaca; padding:12px; border-radius:16px; font-weight:800; font-size:14px; cursor:pointer;">
+          <i class="fa-solid fa-right-from-bracket"></i> Log Out
+        </button>
+      </div>
+    </div>
+  `;
+
+  modal.style.display = 'flex';
+}
+
 function closeSettingsScreen() { document.getElementById('settings-modal').style.display = 'none'; }
 
 async function logoutCurrentUser() {
