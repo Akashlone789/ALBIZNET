@@ -1773,20 +1773,32 @@ function buildSettingCardHTML(headIcon, headTitle, rowsHTML, infoNote = '') {
 // EXACT SCREENSHOT SETTINGS UI (PERSONAL vs BUSINESS - NO SWITCH)
 // =========================================================
 function openSettingsScreen() {
-  if (!currentUserData) return;
-  const u = currentUserData;
+// =========================================================
+// EXACT SCREENSHOT SETTINGS UI (FIXED ID MATCH WITH index.html)
+// =========================================================
+function openSettingsScreen() {
+  let u = currentUserData || activeProfileUser;
+  if (!u) {
+    try { u = JSON.parse(localStorage.getItem(ALBIZNET_SESSION_KEY)); } catch (e) {}
+  }
+  if (!u) {
+    u = { uid: 'guest', name: 'ALBIZNET User', type: 'people', handle: '@user', category: 'Personal Account' };
+  }
+  currentUserData = u;
+
   const isBiz = isUserBusinessAccount(u);
-
-  const setBanner = document.getElementById('set-banner-name');
-  if (setBanner) setBanner.innerText = u.name;
-
   const modal = document.getElementById('settings-modal');
-  const grid = document.getElementById('settings-grid-content');
+  const grid = document.getElementById('settings-single-col-list') || document.getElementById('settings-grid-content');
   if (!modal || !grid) return;
 
-  // Hide default header if custom lavender header is rendered inside grid
-  const defaultHeader = modal.querySelector('.settings-top-header, .modal-header');
-  if (defaultHeader) defaultHeader.style.display = 'none';
+  const fixedHdr = modal.querySelector('.settings-fixed-header');
+  const usrBan = modal.querySelector('.settings-user-banner');
+  const defLogout = modal.querySelector('.logout-full-btn')?.parentElement;
+  if (fixedHdr) fixedHdr.style.display = 'none';
+  if (usrBan) usrBan.style.display = 'none';
+  if (defLogout) defLogout.style.display = 'none';
+
+  grid.style.padding = '0';
 
   const avatarUrl = u.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(u.name || 'U')}&background=4f46e5&color=fff&bold=true`;
   const subLabel = isBiz ? (u.category || 'Clothing & Fashion Store') : (u.handle || '@' + (u.name || 'user').toLowerCase().replace(/\s+/g, ''));
@@ -1794,7 +1806,6 @@ function openSettingsScreen() {
   let cardsMarkup = '';
 
   if (!isBiz) {
-    // 1. PERSONAL / PEOPLE ACCOUNT SETTINGS (Matches Screenshot 1, Account Type / Switch removed)
     const yourAccountCard = buildSettingCardHTML('fa-solid fa-user', 'Your Account', [
       buildSettingRowHTML('fa-solid fa-user', 'Account Information', `handleSettingsOptionClick('Account Information', 'name')`),
       buildSettingRowHTML('fa-solid fa-id-card', 'Personal Details', `handleSettingsOptionClick('Personal Details', 'about')`),
@@ -1850,7 +1861,6 @@ function openSettingsScreen() {
       </div>
     `;
   } else {
-    // 2. BUSINESS ACCOUNT SETTINGS (Matches Screenshot 2, No Switch to Personal Account)
     const bizInfoCard = buildSettingCardHTML('fa-solid fa-store', 'Business Information', [
       buildSettingRowHTML('fa-solid fa-briefcase', 'Business Name', `handleSettingsOptionClick('Business Name', 'name')`),
       buildSettingRowHTML('fa-solid fa-camera-retro', 'Business Profile Picture', `document.getElementById('settings-avatar-input').click()`),
@@ -1913,7 +1923,7 @@ function openSettingsScreen() {
       buildSettingRowHTML('fa-solid fa-bell', 'Notification Preferences', `handleSettingsOptionClick('Notification Preferences')`)
     ].join(''));
 
-    const bizToolsCard = buildSettingCardHTML('fa-solid fa-chart-Simple', 'Business Tools', [
+    const bizToolsCard = buildSettingCardHTML('fa-solid fa-chart-column', 'Business Tools', [
       buildSettingRowHTML('fa-solid fa-chart-column', 'Post Views Analytics', `handleSettingsOptionClick('Post Views Analytics')`),
       buildSettingRowHTML('fa-solid fa-eye', 'Profile Views', `handleSettingsOptionClick('Profile Views')`),
       buildSettingRowHTML('fa-solid fa-arrow-trend-up', 'Follower Growth', `handleSettingsOptionClick('Follower Growth')`),
@@ -1921,7 +1931,7 @@ function openSettingsScreen() {
       buildSettingRowHTML('fa-solid fa-bullseye', 'Content Performance', `handleSettingsOptionClick('Content Performance')`)
     ].join(''));
 
-    const bizSecurityCard = buildSettingCardHTML('fa-solid fa-shield-check', 'Business Security', [
+    const bizSecurityCard = buildSettingCardHTML('fa-solid fa-shield-halved', 'Business Security', [
       buildSettingRowHTML('fa-solid fa-key', 'Change Password', `handleSettingsOptionClick('Change Password')`),
       buildSettingRowHTML('fa-solid fa-shield-halved', 'Login & Security', `handleSettingsOptionClick('Login & Security')`),
       buildSettingRowHTML('fa-solid fa-laptop-mobile', 'Active Sessions', `handleSettingsOptionClick('Active Sessions')`),
@@ -2015,3 +2025,4 @@ function switchBottomNav(tab) {
 function openImageLightbox(url, cap) { if (!url) return; document.getElementById('lightbox-img').src = url; document.getElementById('gallery-lightbox-modal').style.display = 'flex'; }
 function closeImageLightbox() { document.getElementById('gallery-lightbox-modal').style.display = 'none'; }
 function openGoogleMapLink(q) { window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q || 'Ardhapur, Maharashtra')}`, '_blank'); }
+function filterSettingsItems() {}
