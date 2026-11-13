@@ -1770,10 +1770,6 @@ function buildSettingCardHTML(headIcon, headTitle, rowsHTML, infoNote = '') {
 }
 
 // =========================================================
-// EXACT SCREENSHOT SETTINGS UI (PERSONAL vs BUSINESS - NO SWITCH)
-// =========================================================
-function openSettingsScreen() {
-// =========================================================
 // EXACT SCREENSHOT SETTINGS UI (FIXED ID MATCH WITH index.html)
 // =========================================================
 function openSettingsScreen() {
